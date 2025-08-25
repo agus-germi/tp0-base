@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"os"
+    "os"
+    "os/signal"
+    "syscall"
 	"strings"
 	"time"
-
 	"github.com/op/go-logging"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
@@ -111,5 +112,11 @@ func main() {
 	}
 
 	client := common.NewClient(clientConfig)
-	client.StartClientLoop()
+
+	//channel to receive signals
+	sigChan := make(chan os.Signal, 1)
+    signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+
+	client.StartClientLoop(sigChan)
 }
