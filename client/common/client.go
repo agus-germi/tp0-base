@@ -55,7 +55,7 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 		for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
 			select {
 			case sig := <-sigChan:
-				log.Infof("Signal %v received, shutting down client gracefully...", sig)
+				log.Infof("action: shutdown")
 				c.Close() // closes connections and open resources
 				return
 			default:
@@ -77,7 +77,6 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 						c.config.ID,
 						err,
 					)
-					c.Close()
 					return
 				}
 
@@ -91,6 +90,6 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 			}
 		}
 		log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
-		c.Close()
+
 
 }
