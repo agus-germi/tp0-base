@@ -1,0 +1,60 @@
+import sys
+
+def generar_server(clients):
+    return f"""  server:
+    container_name: server
+    image: server:latest
+    entrypoint: python3 /main.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - CLIENTS={clients}
+    networks:
+      - testing_net
+"""
+
+def generar_client(i):
+    return f"""  client{i}:
+    container_name: client{i}
+    image: client:latest
+    entrypoint: /client
+    environment:
+      - CLI_ID={i}
+    networks:
+      - testing_net
+    depends_on:
+      - server
+"""
+
+def generar_red():
+    return """networks:
+  testing_net:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.25.125.0/24
+"""
+
+def generar_compose(filename, clients):
+    """Genera todo el docker-compose.yaml y lo guarda en archivo."""
+    compose = "name: tp0\nservices:\n"
+    compose += generar_server(clients)
+
+    for i in range(1, clients + 1):
+        compose += generar_client(i)
+
+    compose += generar_red()
+
+    with open(filename, "w") as f:
+        f.write(compose)
+
+    print(f"Archivo '{filename}' generado con {clients} clientes.")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Uso: python3 mi-generador.py <archivo-salida> <cantidad-clientes>")
+        sys.exit(1)
+
+    filename = sys.argv[1]
+    clients = int(sys.argv[2])
+    generar_compose(filename, clients)
