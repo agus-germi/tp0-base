@@ -5,6 +5,8 @@ from common.server import Server
 import logging
 import os
 
+import signal
+
 
 def initialize_config():
     """ Parse env variables or config file to find program config params
@@ -49,7 +51,22 @@ def main():
 
     # Initialize server and start server loop
     server = Server(port, listen_backlog)
-    server.run()
+
+    def handle_sigterm(signum, frame):
+        logging.info("action: signal_received | signal: SIGTERM | result: in_progress")
+        server.shutdown()
+        logging.info("action: exit | result: success")
+        exit(0)
+
+    signal.signal(signal.SIGTERM, handle_sigterm)
+
+    try:
+        server.run()
+    except KeyboardInterrupt:
+        logging.info("action: signal_received | signal: SIGINT | result: in_progress | msg: Graceful shutdown initiated")
+        server.shutdown()
+        logging.info("action: shutdown | result: success | msg: Server shutdown complete")
+        exit(0)
 
 def initialize_log(logging_level):
     """
