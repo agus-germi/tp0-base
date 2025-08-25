@@ -11,6 +11,8 @@ def generar_server(clients):
       - CLIENTS={clients}
     networks:
       - testing_net
+    volumes:
+      - ./server/config.ini:/config.ini
 """
 
 def generar_client(i):
@@ -25,6 +27,8 @@ def generar_client(i):
       - testing_net
     depends_on:
       - server
+    volumes:
+      - ./client/config.yaml:/config.yaml
 """
 
 def generar_red():
