@@ -54,9 +54,12 @@ func (c *Client) createClientSocket() error {
 func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 		for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
 			select {
-			case sig := <-sigChan:
-				log.Infof("action: exit | result: success | client_id: %v")
-				return
+			case  <-sigChan:
+            	log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
+            	if c.conn != nil {
+            	    c.conn.Close()
+            	}
+            	return
 			default:
 				// Create the connection to the server in every loop iteration
 				c.createClientSocket()
