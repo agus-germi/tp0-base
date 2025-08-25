@@ -56,7 +56,6 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 			select {
 			case sig := <-sigChan:
 				log.Infof("action: shutdown")
-				c.Close() // closes connections and open resources
 				return
 			default:
 				// Create the connection to the server in every loop iteration
