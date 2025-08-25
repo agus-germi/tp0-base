@@ -55,7 +55,7 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 		for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
 			select {
 			case sig := <-sigChan:
-				log.Infof("action: shutdown")
+				log.Infof("action: exit | result: success | client_id: %v")
 				return
 			default:
 				// Create the connection to the server in every loop iteration
