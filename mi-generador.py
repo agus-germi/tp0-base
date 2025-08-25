@@ -1,6 +1,7 @@
 import sys
 
 def generar_server(clients):
+    """Genera la seccion del servidor en el YAML."""
     return f"""  server:
     container_name: server
     image: server:latest
@@ -13,6 +14,7 @@ def generar_server(clients):
 """
 
 def generar_client(i):
+    """Genera la seccion de un cliente en el YAML."""
     return f"""  client{i}:
     container_name: client{i}
     image: client:latest
@@ -26,6 +28,7 @@ def generar_client(i):
 """
 
 def generar_red():
+    """Genera la seccion de redes en el YAML."""
     return """networks:
   testing_net:
     ipam:
