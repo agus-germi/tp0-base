@@ -11,6 +11,15 @@ import (
 
 var log = logging.MustGetLogger("log")
 
+type Bet struct {
+	Nombre 			string
+	Apellido 		string
+	DNI      		string
+	Nacimiento 		string
+	Numero 			string
+}
+
+
 // ClientConfig Configuration used by the client
 type ClientConfig struct {
 	ID            string
@@ -50,6 +59,22 @@ func (c *Client) createClientSocket() error {
 	return nil
 }
 
+// sendMessage handles secsure message sending (avoiding short-write)
+func (c *Client)  sendMessage(msg string) error{ //	[ ] WiteFull ?
+	msg_length := len([]byte(msg))
+	sent := 0
+
+	for sent < len(msg_length){
+		n, err = c.conn.write(msg_length[sent:])
+		if err != nil {
+			return err
+		}
+		sent += n
+	}
+
+	return nil
+}
+
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 		for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
@@ -64,34 +89,35 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 				// Create the connection to the server in every loop iteration
 				c.createClientSocket()
 
-				// TODO: Modify the send to avoid short-write
-				fmt.Fprintf(
-					c.conn,
-					"[CLIENT %v] Message N°%v\n",
-					c.config.ID,
-					msgID,
-				)
-				msg, err := bufio.NewReader(c.conn).ReadString('\n')
-				c.conn.Close()
+				bet := Bet{ //[ ] check if env variables in doker file,??
+					Nombre: 		os.Getenv("NOMBRE")
+					Apellido: 		os.Getenv("APELLIDO")
+					DNI:			os.Getenv("DNI")
+					Nacimiento:		os.Getenv("NACIMIENTO")
+					Numero:			os.Getenv("NUMERO")
+				}
 
-				if err != nil {
-					log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
-						c.config.ID,
-						err,
-					)
+				//serialize https://pkg.go.dev/fmt#Sprintf
+				message := fmt.Sprintf("%s|%s|%s|%s|%s", bet.Nombre, bet.Apellido, bet.DNI, bet.Nacimiento, bet.Numero)
+
+				if err := c.sendMessage(message); err != nil {
+					log.Errorf("action: apuesta_enviada | result: fail | dni: %v | numero: %v | error: %v", bet.DNI, bet.Numero, err)
+            	    c.conn.Close()
 					return
 				}
 
-				log.Infof("action: receive_message | result: success | client_id: %v | msg: %v",
-					c.config.ID,
-					msg,
-				)
+				//read confirmation https://pkg.go.dev/bufio#Reader
+				resp, err = bufio.NewReader(c.conn).ReadString("\n")
+				c.conn.Close()
 
-				// Wait a time between sending one message and the next one
+				if err!= nil {
+					log.Errorf("action: apuesta_almacenada | result: fail | dni: %v | numero: %v | error: %v", bet.DNI, bet.Numero, err)
+				}
+				
+				log.Infof("action: apuesta_almacenada | result: success | dni: %v | numero: %v", bet.DNI, bet.Numero)
 				time.Sleep(c.config.LoopPeriod)
 			}
 		}
 		log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
-
 
 }
