@@ -17,6 +17,7 @@ type Bet struct {
 	DNI      		string
 	Nacimiento 		string
 	Numero 			string
+	Agencia			string
 }
 
 
@@ -95,10 +96,11 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 					DNI:			os.Getenv("DNI")
 					Nacimiento:		os.Getenv("NACIMIENTO")
 					Numero:			os.Getenv("NUMERO")
+					Agencia:		os.Getenv("CLI_ID")
 				}
 
 				//serialize https://pkg.go.dev/fmt#Sprintf
-				message := fmt.Sprintf("%s|%s|%s|%s|%s", bet.Nombre, bet.Apellido, bet.DNI, bet.Nacimiento, bet.Numero)
+				message := fmt.Sprintf("%s|%s|%s|%s|%s|%s", bet.Nombre, bet.Apellido, bet.DNI, bet.Nacimiento, bet.Numero, bet.Agencia)
 
 				if err := c.sendMessage(message); err != nil {
 					log.Errorf("action: apuesta_enviada | result: fail | dni: %v | numero: %v | error: %v", bet.DNI, bet.Numero, err)

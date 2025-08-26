@@ -1,6 +1,6 @@
 import socket
 import logging
-from utils import Bet, store_bets
+from common.utils import Bet, store_bets
 
 
 class Server:
@@ -59,14 +59,14 @@ class Server:
 
             #deserialize
             try:
-                nombre, apellido, dni, nacimiento, numero = msg.split('|')
+                nombre, apellido, dni, nacimiento, numero, agencia = msg.split('|')
             except ValueError:
                 logging.error(f'action: receive_message | result: fail')
 
             logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
 
             bet = Bet(
-                agency=1, #[ ] check what has to go in nro agency 
+                agency=agencia, #[ ] check what has to go in nro agency 
                 first_name=nombre,
                 last_name=apellido,
                 document=dni,
