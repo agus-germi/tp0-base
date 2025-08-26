@@ -100,7 +100,7 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 				}
 
 				//serialize https://pkg.go.dev/fmt#Sprintf
-				message := fmt.Sprintf("%s|%s|%s|%s|%s|%s", bet.Nombre, bet.Apellido, bet.DNI, bet.Nacimiento, bet.Numero, bet.Agencia)
+				message := fmt.Sprintf("%s|%s|%s|%s|%s|%s\n", bet.Nombre, bet.Apellido, bet.DNI, bet.Nacimiento, bet.Numero, bet.Agencia)
 
 				if err := c.sendMessage(message); err != nil {
 					log.Errorf("action: apuesta_enviada | result: fail | dni: %v | numero: %v | error: %v", bet.DNI, bet.Numero, err)

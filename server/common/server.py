@@ -51,7 +51,7 @@ class Server:
                 if not chunk:
                     break
                 data += chunk
-                if b'/n' in chunk: #indicates the end of the message
+                if b'\n' in chunk: #indicates the end of the message
                     break 
 
             msg = data.decode('utf-8').strip()
