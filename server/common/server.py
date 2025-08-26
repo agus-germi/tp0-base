@@ -45,10 +45,20 @@ class Server:
         client socket will also be closed
         """
         try:
-            # TODO: Modify the receive to avoid short-reads
-            msg = client_sock.recv(1024).rstrip().decode('utf-8')
+            data = b''
+            while True: #[ ] look for another better way 
+                chunk = client_sock.recv(1024) #[ ]1024 enough ?.
+                #recv non blocking
+                if not chunk:
+                    break
+                data += chunk
+                if b'/n' in chunk: #indicates the end of the message
+                    break 
+
+            msg = data.decode('utf-8').strip()
             addr = client_sock.getpeername()
             logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
+            
             # TODO: Modify the send to avoid short-writes
             client_sock.send("{}\n".format(msg).encode('utf-8'))
         except OSError as e:
