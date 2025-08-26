@@ -1,7 +1,6 @@
 import socket
 import logging
-
-
+from utils import Bet, store_bets
 
 
 class Server:
@@ -57,10 +56,30 @@ class Server:
 
             msg = data.decode('utf-8').strip()
             addr = client_sock.getpeername()
+
+            #deserialize
+            try:
+                nombre, apellido, dni, nacimiento, numero = msg.split('|')
+            except ValueError:
+                logging.error(f'action: receive_message | result: fail')
+
             logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
-            
-            # TODO: Modify the send to avoid short-writes
-            client_sock.send("{}\n".format(msg).encode('utf-8'))
+
+            bet = Bet(
+                agency=1, #[ ] check what has to go in nro agency 
+                first_name=nombre,
+                last_name=apellido,
+                document=dni,
+                birthdate=nacimiento,
+                number=numero
+            )
+            store_bets([bet])
+            logging.info(f"action: apuesta_almacenada | result: success | dni: {dni} | numero: {numero}")
+
+            #send client a confirmation https://docs.python.org/3/library/socket.html#socket.socket.sendall
+            client_sock.sendall(b"success\n")
+
+
         except OSError as e:
             logging.error("action: receive_message | result: fail | error: {e}")
         finally:
