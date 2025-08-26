@@ -53,7 +53,7 @@ def main():
     server = Server(port, listen_backlog)
 
     def handle_sigterm(signum, frame):
-        logging.info("action: signal_received | signal: SIGTERM | result: in_progress")
+        logging.info("action: signal_received | result: in_progress")
         server.shutdown()
         logging.info("action: exit | result: success")
         exit(0)
