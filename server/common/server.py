@@ -43,7 +43,6 @@ class Server:
         If a problem arises in the communication with the client, the
         client socket will also be closed
         """
-        logging.info("ACA ARRANCA")
         try:
             data = b''
             while True: #[ ] look for another better way 
@@ -65,7 +64,7 @@ class Server:
                 return
             nombre, apellido, dni, nacimiento, numero, agencia = campos
 
-            logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
+            logging.info(f'action: receive_message | result: success | ip: {addr[0]} ')
 
             bet = Bet(
                 agency=agencia,
