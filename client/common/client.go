@@ -108,6 +108,8 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 					return
 				}
 
+				log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v", bet.DNI, bet.Numero)
+
 				//read confirmation https://pkg.go.dev/bufio#Reader
 				resp, err = bufio.NewReader(c.conn).ReadString("\n")
 				c.conn.Close()
