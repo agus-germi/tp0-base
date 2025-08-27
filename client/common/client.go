@@ -10,6 +10,7 @@ import (
 )
 
 var log = logging.MustGetLogger("log")
+const HeaderLength = 4 
 
 type Bet struct {
 	Nombre 			string
@@ -61,19 +62,42 @@ func (c *Client) createClientSocket() error {
 }
 
 // sendMessage handles secsure message sending (avoiding short-write)
-func (c *Client)  sendMessage(msg string) error{ //	[ ] WiteFull ?
+func (c *Client)  sendMessage(msg string) error{ 
     msgBytes := []byte(msg)
-		total := len(msgBytes)
-		sent := 0
+	total := len(msgBytes)
+	sent := 0
 
-		for sent < total {
-			n, err := c.conn.Write(msgBytes[sent:])
-			if err != nil {
-				return err
-			}
-			sent += n
+	sendHeader(total)
+
+	for sent < total {
+		n, err := c.conn.Write(msgBytes[sent:])
+		if err != nil {
+			return err
 		}
-		return nil
+		sent += n
+	}
+	return nil
+}
+
+// sendHeader
+func(c*Client) sendHeader(length int) error {
+    
+	header := []byte{
+        byte(length >> 24),
+        byte(length >> 16),
+        byte(length >> 8),
+        byte(length),
+    }
+
+	sent := 0
+    for sent < HeaderLength {
+        n, err := c.conn.Write(header[sent:])
+        if err != nil {
+            return err
+        }
+        sent += n
+    }
+
 }
 
 // StartClientLoop Send messages to the client until some time threshold is met

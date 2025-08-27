@@ -2,6 +2,7 @@ import socket
 import logging
 from common.utils import Bet, store_bets
 
+HEADER_LENGTH = 4
 
 class Server:
     def __init__(self, port, listen_backlog):
@@ -36,6 +37,17 @@ class Server:
         except Exception as e:
             logging.error(f"action: close_socket | result: fail")
 
+    def recv_all(client_sock, n):
+        data = b''
+        while len(data) < n:
+            chunk = client_sock.recv(n-len(data))
+
+            if not chunk:
+                return None
+            data += chunk
+        return data
+
+
     def __handle_client_connection(self, client_sock):
         """
         Read message from a specific client socket and closes the socket
@@ -44,16 +56,18 @@ class Server:
         client socket will also be closed
         """
         try:
-            data = b''
-            while True: #[ ] look for another better way 
-                chunk = client_sock.recv(1024) #[ ]1024 enough ?.
-                #recv non blocking
-                if not chunk:
-                    break
-                data += chunk
-                if b'\n' in chunk: #indicates the end of the message
-                    break 
-
+            
+            header = self.recv_all(client_sock, HEADER_LENGTH)
+            if not header:
+                client_sock.close()
+                return
+            
+            msg_length = (header[0] << 24) | (header[1] << 16) | (header[2] << 8) | header[3]
+            data = self.recv_all(client_sock, msg_length)
+            if not data:
+                client_sock.close()
+                return
+            
             msg = data.decode('utf-8').strip()
             addr = client_sock.getpeername()
             campos = msg.split('|')
