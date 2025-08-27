@@ -59,6 +59,7 @@ class Server:
 
             #deserialize
             try:
+                logging.info(f'MENSAJEEEE {msg}')
                 nombre, apellido, dni, nacimiento, numero, agencia = msg.split('|')
             except ValueError:
                 logging.error(f'action: receive_message | result: fail')

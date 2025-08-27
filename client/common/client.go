@@ -62,22 +62,23 @@ func (c *Client) createClientSocket() error {
 
 // sendMessage handles secsure message sending (avoiding short-write)
 func (c *Client)  sendMessage(msg string) error{ //	[ ] WiteFull ?
-	msg_length := len([]byte(msg))
-	sent := 0
+    msgBytes := []byte(msg)
+		total := len(msgBytes)
+		sent := 0
 
-	for sent < len(msg_length){
-		n, err = c.conn.write(msg_length[sent:])
-		if err != nil {
-			return err
+		for sent < total {
+			n, err := c.conn.Write(msgBytes[sent:])
+			if err != nil {
+				return err
+			}
+			sent += n
 		}
-		sent += n
-	}
-
-	return nil
+		return nil
 }
 
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop(sigChan chan os.Signal) {
+	log.Infof("Entrando en StartClientLoop")
 		for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
 			select {
 			case  <-sigChan:
@@ -90,13 +91,13 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 				// Create the connection to the server in every loop iteration
 				c.createClientSocket()
 
-				bet := Bet{ //[ ] check if env variables in doker file,??
-					Nombre: 		os.Getenv("NOMBRE")
-					Apellido: 		os.Getenv("APELLIDO")
-					DNI:			os.Getenv("DNI")
-					Nacimiento:		os.Getenv("NACIMIENTO")
-					Numero:			os.Getenv("NUMERO")
-					Agencia:		os.Getenv("CLI_ID")
+				bet := Bet{ // [ ] check if env variables in doker file,??
+					Nombre:      os.Getenv("CLI_NOMBRE"),
+					Apellido:    os.Getenv("CLI_APELLIDO"),
+					DNI:         os.Getenv("CLI_DNI"),
+					Nacimiento:  os.Getenv("CLI_NACIMIENTO"),
+					Numero:      os.Getenv("CLI_NUMERO"),
+					Agencia:     os.Getenv("CLI_ID"),
 				}
 
 				//serialize https://pkg.go.dev/fmt#Sprintf
@@ -111,13 +112,13 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 				log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v", bet.DNI, bet.Numero)
 
 				//read confirmation https://pkg.go.dev/bufio#Reader
-				resp, err = bufio.NewReader(c.conn).ReadString("\n")
+				_, err := bufio.NewReader(c.conn).ReadString('\n')
 				c.conn.Close()
 
-				if err!= nil {
+				if err != nil {
 					log.Errorf("action: apuesta_almacenada | result: fail | dni: %v | numero: %v | error: %v", bet.DNI, bet.Numero, err)
 				}
-				
+
 				log.Infof("action: apuesta_almacenada | result: success | dni: %v | numero: %v", bet.DNI, bet.Numero)
 				time.Sleep(c.config.LoopPeriod)
 			}
