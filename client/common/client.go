@@ -61,24 +61,6 @@ func (c *Client) createClientSocket() error {
 	return nil
 }
 
-// sendMessage handles secsure message sending (avoiding short-write)
-func (c *Client)  sendMessage(msg string) error{ 
-    msgBytes := []byte(msg)
-	total := len(msgBytes)
-	sent := 0
-
-	sendHeader(total)
-
-	for sent < total {
-		n, err := c.conn.Write(msgBytes[sent:])
-		if err != nil {
-			return err
-		}
-		sent += n
-	}
-	return nil
-}
-
 // sendHeader
 func(c*Client) sendHeader(length int) error {
     
@@ -97,8 +79,30 @@ func(c*Client) sendHeader(length int) error {
         }
         sent += n
     }
-
+	return nil
 }
+
+// sendMessage handles secsure message sending (avoiding short-write)
+func (c *Client)  sendMessage(msg string) error{ 
+    msgBytes := []byte(msg)
+	total := len(msgBytes)
+	sent := 0
+
+	if err := c.sendHeader(total); err != nil {
+	    return err
+	}
+
+	for sent < total {
+		n, err := c.conn.Write(msgBytes[sent:])
+		if err != nil {
+			return err
+		}
+		sent += n
+	}
+	return nil
+}
+
+
 
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop(sigChan chan os.Signal) {
