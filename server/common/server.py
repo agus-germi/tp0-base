@@ -43,6 +43,7 @@ class Server:
         If a problem arises in the communication with the client, the
         client socket will also be closed
         """
+        logging.info("ACA ARRANCA")
         try:
             data = b''
             while True: #[ ] look for another better way 
@@ -56,18 +57,18 @@ class Server:
 
             msg = data.decode('utf-8').strip()
             addr = client_sock.getpeername()
+            campos = msg.split('|')
 
-            #deserialize
-            try:
-                logging.info(f'MENSAJEEEE {msg}')
-                nombre, apellido, dni, nacimiento, numero, agencia = msg.split('|')
-            except ValueError:
-                logging.error(f'action: receive_message | result: fail')
+            if len(campos) != 6:
+                logging.error(f'action: receive_message | result: fail | error: formato de mensaje incorrecto')
+                client_sock.close()
+                return
+            nombre, apellido, dni, nacimiento, numero, agencia = campos
 
             logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
 
             bet = Bet(
-                agency=agencia, #[ ] check what has to go in nro agency 
+                agency=agencia,
                 first_name=nombre,
                 last_name=apellido,
                 document=dni,
