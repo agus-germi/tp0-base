@@ -91,6 +91,7 @@ func (c *Client)  sendMessage(msg string) error{
 	if err := c.sendHeader(total); err != nil {
 	    return err
 	}
+	log.Infof("action: header_sent | result: success | msg_length: %v", total)
 
 	for sent < total {
 		n, err := c.conn.Write(msgBytes[sent:])
@@ -106,7 +107,6 @@ func (c *Client)  sendMessage(msg string) error{
 
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop(sigChan chan os.Signal) {
-	log.Infof("Entrando en StartClientLoop")
 		for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
 			select {
 			case  <-sigChan:
@@ -146,8 +146,6 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 				if err != nil {
 					log.Errorf("action: apuesta_almacenada | result: fail | dni: %v | numero: %v | error: %v", bet.DNI, bet.Numero, err)
 				}
-
-				log.Infof("action: apuesta_almacenada | result: success | dni: %v | numero: %v", bet.DNI, bet.Numero)
 				time.Sleep(c.config.LoopPeriod)
 			}
 		}

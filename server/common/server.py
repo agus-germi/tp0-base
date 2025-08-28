@@ -63,6 +63,8 @@ class Server:
                 return
             
             msg_length = (header[0] << 24) | (header[1] << 16) | (header[2] << 8) | header[3]
+            logging.info(f'action: header_received | result: success | msg_length: {msg_length}')
+
             data = self.recv_all(client_sock, msg_length)
             if not data:
                 client_sock.close()
@@ -90,7 +92,6 @@ class Server:
             )
             store_bets([bet])
             logging.info(f"action: apuesta_almacenada | result: success | dni: {dni} | numero: {numero}")
-            logging.info("SERVER ANTES DEL SENDALL")
             #send client a confirmation https://docs.python.org/3/library/socket.html#socket.socket.sendall
             client_sock.sendall(b"success\n")
 
