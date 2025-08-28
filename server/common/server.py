@@ -37,7 +37,7 @@ class Server:
         except Exception as e:
             logging.error(f"action: close_socket | result: fail")
 
-    def recv_all(client_sock, n):
+    def recv_all(self, client_sock, n):
         data = b''
         while len(data) < n:
             chunk = client_sock.recv(n-len(data))
@@ -90,7 +90,7 @@ class Server:
             )
             store_bets([bet])
             logging.info(f"action: apuesta_almacenada | result: success | dni: {dni} | numero: {numero}")
-
+            logging.info("SERVER ANTES DEL SENDALL")
             #send client a confirmation https://docs.python.org/3/library/socket.html#socket.socket.sendall
             client_sock.sendall(b"success\n")
 
