@@ -29,9 +29,8 @@ def generar_client(i):
       - server
     volumes:
       - ./client/config.yaml:/config.yaml
-      - ./data/dataset/agency-{i}.csv:/bets.csv
+      - ./.data/agency-{i}.csv:/bets.csv
 """
-
 def generar_red():
     """Genera la seccion de redes en el YAML."""
     return """networks:

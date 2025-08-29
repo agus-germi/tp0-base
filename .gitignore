@@ -4,5 +4,5 @@
 # Executables
 bin/
 
-.data/dataset/
+.data/*
 !.data/dataset/dataset.zip
