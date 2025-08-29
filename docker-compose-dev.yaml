@@ -17,85 +17,65 @@ services:
     entrypoint: /client
     environment:
       - CLI_ID=1
-      - CLI_NOMBRE=Santiago Lionel
-      - CLI_APELLIDO=Lorca
-      - CLI_DNI=30904465
-      - CLI_NACIMIENTO=1999-03-17
-      - CLI_NUMERO=6531
     networks:
       - testing_net
     depends_on:
       - server
     volumes:
       - ./client/config.yaml:/config.yaml
+      - ./.data/agency-1.csv:/bets.csv
   client2:
     container_name: client2
     image: client:latest
     entrypoint: /client
     environment:
       - CLI_ID=2
-      - CLI_NOMBRE=Santiago Lionel
-      - CLI_APELLIDO=Lorca
-      - CLI_DNI=23456789
-      - CLI_NACIMIENTO=1999-03-17
-      - CLI_NUMERO=3071
     networks:
       - testing_net
     depends_on:
       - server
     volumes:
       - ./client/config.yaml:/config.yaml
+      - ./.data/agency-2.csv:/bets.csv
   client3:
     container_name: client3
     image: client:latest
     entrypoint: /client
     environment:
       - CLI_ID=3
-      - CLI_NOMBRE=Santiago Lionel
-      - CLI_APELLIDO=Lorca
-      - CLI_DNI=45678901
-      - CLI_NACIMIENTO=1999-03-17
-      - CLI_NUMERO=7574
     networks:
       - testing_net
     depends_on:
       - server
     volumes:
       - ./client/config.yaml:/config.yaml
+      - ./.data/agency-3.csv:/bets.csv
   client4:
     container_name: client4
     image: client:latest
     entrypoint: /client
     environment:
       - CLI_ID=4
-      - CLI_NOMBRE=Santiago Lionel
-      - CLI_APELLIDO=Lorca
-      - CLI_DNI=43448326
-      - CLI_NACIMIENTO=1999-03-17
-      - CLI_NUMERO=9090
     networks:
       - testing_net
     depends_on:
       - server
     volumes:
       - ./client/config.yaml:/config.yaml
+      - ./.data/agency-4.csv:/bets.csv
   client5:
     container_name: client5
     image: client:latest
     entrypoint: /client
     environment:
       - CLI_ID=5
-      - CLI_NOMBRE=Santiago Lionel
-      - CLI_APELLIDO=Lorca
-      - CLI_DNI=34567890
-      - CLI_NACIMIENTO=1999-03-17
-      - CLI_NUMERO=2106
     networks:
       - testing_net
     depends_on:
       - server
     volumes:
       - ./client/config.yaml:/config.yaml
+      - ./.data/agency-5.csv:/bets.csv
 networks:
   testing_net:
     ipam:

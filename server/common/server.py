@@ -41,47 +41,27 @@ class Server:
         data = b''
         while len(data) < n:
             chunk = client_sock.recv(n-len(data))
-
             if not chunk:
                 return None
             data += chunk
         return data
 
+    def parse_payload(self, payload):
+        msg = payload.decode('utf-8').strip().split('\n')
+        bets = []
+        has_error = False
+        total_bets = 0
 
-    def __handle_client_connection(self, client_sock):
-        """
-        Read message from a specific client socket and closes the socket
-
-        If a problem arises in the communication with the client, the
-        client socket will also be closed
-        """
-        try:
-            
-            header = self.recv_all(client_sock, HEADER_LENGTH)
-            if not header:
-                client_sock.close()
-                return
-            
-            msg_length = (header[0] << 24) | (header[1] << 16) | (header[2] << 8) | header[3]
-            logging.info(f'action: header_received | result: success | msg_length: {msg_length}')
-
-            data = self.recv_all(client_sock, msg_length)
-            if not data:
-                client_sock.close()
-                return
-            
-            msg = data.decode('utf-8').strip()
-            addr = client_sock.getpeername()
-            campos = msg.split('|')
-
-            if len(campos) != 6:
-                logging.error(f'action: receive_message | result: fail | error: formato de mensaje incorrecto')
-                client_sock.close()
-                return
-            nombre, apellido, dni, nacimiento, numero, agencia = campos
-
-            logging.info(f'action: receive_message | result: success | ip: {addr[0]} ')
-
+        for line in msg[0].split(','):
+            line = line.strip()
+            if not line:
+                continue
+            total_bets += 1
+            bet_info = line.split('|')
+            if len(bet_info) != 6:
+                has_error = True
+                continue
+            nombre, apellido, dni, nacimiento, numero, agencia = bet_info
             bet = Bet(
                 agency=agencia,
                 first_name=nombre,
@@ -90,14 +70,39 @@ class Server:
                 birthdate=nacimiento,
                 number=numero
             )
-            store_bets([bet])
-            logging.info(f"action: apuesta_almacenada | result: success | dni: {dni} | numero: {numero}")
-            #send client a confirmation https://docs.python.org/3/library/socket.html#socket.socket.sendall
-            client_sock.sendall(b"success\n")
+            bets.append(bet)
+        return bets, has_error, total_bets
 
+        
+
+    def __handle_client_connection(self, client_sock):
+        """
+        Read multiple messages from a specific client socket until the client disconnects.
+        """
+        try:
+            while True:
+                header = self.recv_all(client_sock, HEADER_LENGTH)
+                if not header:
+                    break
+                msg_length = (header[0] << 24) | (header[1] << 16) | (header[2] << 8) | header[3]
+                logging.info(f'action: header_received | result: success | msg_length: {msg_length}')
+
+                data = self.recv_all(client_sock, msg_length)
+                if not data:
+                    break
+
+                bets, has_error, total_bets = self.parse_payload(data)
+                if has_error:
+                    logging.error(f"action: apuesta_recibida | result: fail | cantidad: {total_bets}")
+                    client_sock.sendall(b"ERROR\n")
+                else:
+                    store_bets(bets)
+                    logging.info(f"action: apuesta_recibida | result: success | cantidad: {total_bets}")
+                    logging.info(f"action: apuesta_almacenada | result: success")
+                    client_sock.sendall(b"success\n")
 
         except OSError as e:
-            logging.error("action: receive_message | result: fail | error: {e}")
+            logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:
             client_sock.close()
 

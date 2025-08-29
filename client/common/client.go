@@ -7,19 +7,10 @@ import (
 	"time"
 	"os"
 	"github.com/op/go-logging"
+	"strings" //usado en main
 )
 
 var log = logging.MustGetLogger("log")
-const HeaderLength = 4 
-
-type Bet struct {
-	Nombre 			string
-	Apellido 		string
-	DNI      		string
-	Nacimiento 		string
-	Numero 			string
-	Agencia			string
-}
 
 
 // ClientConfig Configuration used by the client
@@ -34,6 +25,7 @@ type ClientConfig struct {
 type Client struct {
 	config ClientConfig
 	conn   net.Conn
+	bets 	[]Bet
 }
 
 // NewClient Initializes a new client receiving the configuration
@@ -60,6 +52,7 @@ func (c *Client) createClientSocket() error {
 	c.conn = conn
 	return nil
 }
+
 
 // sendHeader
 func(c*Client) sendHeader(length int) error {
@@ -89,9 +82,9 @@ func (c *Client)  sendMessage(msg string) error{
 	sent := 0
 
 	if err := c.sendHeader(total); err != nil {
-	    return err
-	}
-	log.Infof("action: header_sent | result: success | msg_length: %v", total)
+        log.Errorf("action: header_sent | result: fail | error: %v", err)
+        return err
+    }
 
 	for sent < total {
 		n, err := c.conn.Write(msgBytes[sent:])
@@ -103,52 +96,61 @@ func (c *Client)  sendMessage(msg string) error{
 	return nil
 }
 
-
-
 // StartClientLoop Send messages to the client until some time threshold is met
-func (c *Client) StartClientLoop(sigChan chan os.Signal) {
-		for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
-			select {
-			case  <-sigChan:
-            	log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
-            	if c.conn != nil {
-            	    c.conn.Close()
-            	}
-            	return
-			default:
-				// Create the connection to the server in every loop iteration
-				c.createClientSocket()
+func (c *Client) StartClientLoop(sigChan chan os.Signal, batchSize int) {
+		
+	file, err := os.Open(fmt.Sprintf("bets.csv"))
+	if err != nil {
+    	log.Errorf("action: open_csv | result: fail | client_id: %v | error: %v", c.config.ID, err)
+    	return
+    }
+    defer file.Close()
+    scanner := bufio.NewScanner(file)
 
-				bet := Bet{ // [ ] check if env variables in doker file,??
-					Nombre:      os.Getenv("CLI_NOMBRE"),
-					Apellido:    os.Getenv("CLI_APELLIDO"),
-					DNI:         os.Getenv("CLI_DNI"),
-					Nacimiento:  os.Getenv("CLI_NACIMIENTO"),
-					Numero:      os.Getenv("CLI_NUMERO"),
-					Agencia:     os.Getenv("CLI_ID"),
-				}
-
-				//serialize https://pkg.go.dev/fmt#Sprintf
-				message := fmt.Sprintf("%s|%s|%s|%s|%s|%s\n", bet.Nombre, bet.Apellido, bet.DNI, bet.Nacimiento, bet.Numero, bet.Agencia)
-
-				if err := c.sendMessage(message); err != nil {
-					log.Errorf("action: apuesta_enviada | result: fail | dni: %v | numero: %v | error: %v", bet.DNI, bet.Numero, err)
-            	    c.conn.Close()
-					return
-				}
-
-				log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v", bet.DNI, bet.Numero)
-
-				//read confirmation https://pkg.go.dev/bufio#Reader
-				_, err := bufio.NewReader(c.conn).ReadString('\n')
-				c.conn.Close()
-
-				if err != nil {
-					log.Errorf("action: apuesta_almacenada | result: fail | dni: %v | numero: %v | error: %v", bet.DNI, bet.Numero, err)
-				}
-				time.Sleep(c.config.LoopPeriod)
-			}
+	c.createClientSocket()
+	defer c.conn.Close() // me aseguro que la conexion se cierre https://go.dev/tour/flowcontrol/12
+	for{
+        select {
+        case <-sigChan:
+            log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
+            return
+        default:
+        }
+		//leo bet batch
+		batch, err, eof := getBets(scanner, batchSize)
+		if eof {
+			break //file ended
+		}else if err != nil{
+			log.Errorf("action: read_batch | result: fail | error: %v", err)
 		}
-		log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+		
+		var records []string
+		for _, bet := range batch {
+		    record := bet.Nombre + "|" + bet.Apellido + "|" + bet.DNI + "|" +
+		              bet.Nacimiento + "|" + bet.Numero + "|" + c.config.ID
+		    records = append(records, record)
+		}
+
+		message := strings.Join(records, ",")
+
+		log.Infof("Mensaje %v",message)
+		//envio payload
+		if err := c.sendMessage(message); err != nil {
+            log.Errorf("action: batch_sent | result: fail | error: %v", err)
+            return
+        }
+		
+		log.Infof("action: batch_sent | result: success | cantidad: %v", len(batch))
+
+		//read confirmation https://pkg.go.dev/bufio#Reader
+		_, err = bufio.NewReader(c.conn).ReadString('\n')
+
+		time.Sleep(c.config.LoopPeriod)
+
+
+	}
+	c.conn.Close()
+	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
+
 
 }

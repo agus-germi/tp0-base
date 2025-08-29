@@ -118,5 +118,5 @@ func main() {
     signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 
-	client.StartClientLoop(sigChan)
+	client.StartClientLoop(sigChan, 10)
 }
