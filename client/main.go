@@ -109,6 +109,7 @@ func main() {
 		ID:            v.GetString("id"),
 		LoopAmount:    v.GetInt("loop.amount"),
 		LoopPeriod:    v.GetDuration("loop.period"),
+		BatchSize:	   v.GetInt("batch.maxAmount"),		
 	}
 
 	client := common.NewClient(clientConfig)
@@ -118,5 +119,5 @@ func main() {
     signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 
-	client.StartClientLoop(sigChan, 10)
+	client.StartClientLoop(sigChan)
 }

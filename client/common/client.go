@@ -19,6 +19,7 @@ type ClientConfig struct {
 	ServerAddress string
 	LoopAmount    int
 	LoopPeriod    time.Duration
+	BatchSize	  int
 }
 
 // Client Entity that encapsulates how
@@ -97,7 +98,7 @@ func (c *Client)  sendMessage(msg string) error{
 }
 
 // StartClientLoop Send messages to the client until some time threshold is met
-func (c *Client) StartClientLoop(sigChan chan os.Signal, batchSize int) {
+func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 		
 	file, err := os.Open(fmt.Sprintf("bets.csv"))
 	if err != nil {
@@ -117,7 +118,7 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal, batchSize int) {
         default:
         }
 		//leo bet batch
-		batch, err, eof := getBets(scanner, batchSize)
+		batch, err, eof := getBets(scanner, c.config.BatchSize)
 		if eof {
 			break //file ended
 		}else if err != nil{
@@ -133,7 +134,6 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal, batchSize int) {
 
 		message := strings.Join(records, ",")
 
-		log.Infof("Mensaje %v",message)
 		//envio payload
 		if err := c.sendMessage(message); err != nil {
             log.Errorf("action: batch_sent | result: fail | error: %v", err)

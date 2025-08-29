@@ -19,7 +19,6 @@ type Bet struct {
 
 func getBets(scanner *bufio.Scanner, batchSize int)([]Bet, error, bool){
 	var bets []Bet
-
 	for len(bets) < batchSize && scanner.Scan() {
 		line := scanner.Text()
 		if line == "" {
