@@ -54,6 +54,14 @@ func (c *Client) createClientSocket() error {
 	return nil
 }
 
+// avisa que no hay más apuestas
+func (c *Client) sendEnd() error {
+	endMessage := fmt.Sprintf("END|%v\n", c.config.ID)
+	if err := c.sendMessage(endMessage); err != nil {
+		return fmt.Errorf("action: send_end | result: fail | client_id: %v | error: %w", c.config.ID, err)
+	}
+	return nil
+}
 
 // sendHeader
 func(c*Client) sendHeader(length int) error {
@@ -97,6 +105,27 @@ func (c *Client)  sendMessage(msg string) error{
 	return nil
 }
 
+
+// queda escuchando ganadores del server
+func (c *Client) waitForWinners() error {
+	log.Infof("action: consulta_ganadores | result: in_progress | client_id: %v", c.config.ID)
+	reader := bufio.NewReader(c.conn)
+	var allWinners []string
+
+	for {
+		msg, err := reader.ReadString('\n')
+		if err != nil {
+			log.Errorf("action: consulta_ganadores | result: fail | err: %v", err)
+		}
+		msg = strings.TrimSpace(msg)	
+		if msg == "WINNERS_END" {break}
+		if msg != "" {allWinners = append(allWinners, msg)}
+
+	}
+	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %v", len(allWinners))
+	return nil
+}
+
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 		
@@ -120,7 +149,10 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 		//leo bet batch
 		batch, err, eof := getBets(scanner, c.config.BatchSize)
 		if eof {
-			break //file ended
+			if err := c.sendEnd(); err != nil {
+				log.Errorf("action: send_end | result: fail | client_id: %v | error: %v", c.config.ID, err)
+			}
+			break
 		}else if err != nil{
 			log.Errorf("action: read_batch | result: fail | error: %v", err)
 		}
@@ -145,9 +177,14 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 		//read confirmation https://pkg.go.dev/bufio#Reader
 		_, err = bufio.NewReader(c.conn).ReadString('\n')
 
-
-
 	}
+
+
+	if err := c.waitForWinners(); err != nil {
+		log.Errorf("action: wait_winners | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return
+	}
+
 	c.conn.Close()
 	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
 

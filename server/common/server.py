@@ -1,16 +1,21 @@
 import socket
 import logging
-from common.utils import Bet, store_bets
+from common.utils import Bet, store_bets, load_bets, has_won
 
 HEADER_LENGTH = 4
 
 class Server:
-    def __init__(self, port, listen_backlog):
+    def __init__(self, port, listen_backlog, num_clients):
         # Initialize server socket
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self._is_running = True
+
+        # -- ej7
+        self._num_clients = num_clients
+        self._agencies_done = {}
+
 
     def run(self):
         """
@@ -37,7 +42,7 @@ class Server:
         except Exception as e:
             logging.error(f"action: close_socket | result: fail")
 
-    def recv_all(self, client_sock, n):
+    def _recv_all(self, client_sock, n):
         data = b''
         while len(data) < n:
             chunk = client_sock.recv(n-len(data))
@@ -46,7 +51,7 @@ class Server:
             data += chunk
         return data
 
-    def parse_payload(self, payload):
+    def _parse_payload(self, payload):
         msg = payload.decode('utf-8').strip().split('\n')
         bets = []
         has_error = False
@@ -73,7 +78,38 @@ class Server:
             bets.append(bet)
         return bets, has_error, total_bets
 
-        
+    def _check_end_message(self, payload, client_sock):
+        try:
+            text = payload.decode("utf-8").strip()
+            if text.startswith("END|"):
+                agency = text.split("|")[1]
+                self._agencies_done[agency] = client_sock
+                logging.info(f"action: end_received | agency: {agency}")
+                return agency
+        except Exception as e:
+            logging.error(f"action: check_end_message | result: fail | error: {e}")
+        return None
+
+    def _calculate_winners(self):
+        winners_by_agency = {}
+        for bet in load_bets():
+            if has_won(bet):
+                #asumo que puede ganar mas de uno por agencia
+                winners_by_agency.setdefault(bet.agency, []).append(bet.document) 
+        return winners_by_agency
+
+    def _send_results(self, winners: dict):
+        for agency in self._agencies_done:
+            sock = self._agencies_done[agency]
+            results = winners.get(int(agency), [])
+            logging.info(f"RESULTADOS: {results}")
+            msg = "\n".join(results) + "\nWINNERS_END\n"
+            try:
+                sock.sendall(msg.encode("utf-8"))
+            finally:
+                sock.close()
+    
+
 
     def __handle_client_connection(self, client_sock):
         """
@@ -81,17 +117,21 @@ class Server:
         """
         try:
             while True:
-                header = self.recv_all(client_sock, HEADER_LENGTH)
+                header = self._recv_all(client_sock, HEADER_LENGTH)
                 if not header:
                     break
                 msg_length = (header[0] << 24) | (header[1] << 16) | (header[2] << 8) | header[3]
                 logging.info(f'action: header_received | result: success | msg_length: {msg_length}')
 
-                data = self.recv_all(client_sock, msg_length)
+                data = self._recv_all(client_sock, msg_length)
                 if not data:
                     break
+                
+                client_agency = self._check_end_message(data, client_sock)
+                if client_agency:
+                    break
 
-                bets, has_error, total_bets = self.parse_payload(data)
+                bets, has_error, total_bets = self._parse_payload(data)
                 if has_error:
                     logging.error(f"action: apuesta_recibida | result: fail | cantidad: {total_bets}")
                     client_sock.sendall(b"ERROR\n")
@@ -100,11 +140,18 @@ class Server:
                     logging.info(f"action: apuesta_recibida | result: success | cantidad: {total_bets}")
                     logging.info(f"action: apuesta_almacenada | result: success")
                     client_sock.sendall(b"success\n")
+            
+            #chequeo si ya recibi de todas las agencias
+            if len(self._agencies_done) == self._num_clients:
+                winners = self._calculate_winners()
+                logging.info("action: sorteo | result: success")
+                logging.info("action: send_winners | result: in_progress")
+                self._send_results(winners)
+
 
         except OSError as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
-        finally:
-            client_sock.close()
+
 
     def __accept_new_connection(self):
         """
