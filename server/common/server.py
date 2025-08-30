@@ -84,7 +84,6 @@ class Server:
             if text.startswith("END|"):
                 agency = text.split("|")[1]
                 self._agencies_done[agency] = client_sock
-                logging.info(f"action: end_received | agency: {agency}")
                 return agency
         except Exception as e:
             logging.error(f"action: check_end_message | result: fail | error: {e}")
