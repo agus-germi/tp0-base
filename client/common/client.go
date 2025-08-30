@@ -122,7 +122,7 @@ func (c *Client) waitForWinners() error {
 		if msg != "" {allWinners = append(allWinners, msg)}
 
 	}
-	log.Infof("action: consulta_ganadores | result: success | client_id: %v | cant_ganadores: %v",c.config.ID, len(allWinners))
+	log.Infof("action: consulta_ganadores | result: success | client_id: client%v | cant_ganadores: %v",c.config.ID, len(allWinners))
 	return nil
 }
 
