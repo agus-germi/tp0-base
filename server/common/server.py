@@ -101,7 +101,6 @@ class Server:
         for agency in self._agencies_done:
             sock = self._agencies_done[agency]
             results = winners.get(int(agency), [])
-            logging.info(f"RESULTADOS: {results}")
             msg = "\n".join(results) + "\nWINNERS_END\n"
             try:
                 sock.sendall(msg.encode("utf-8"))
