@@ -145,7 +145,6 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 		//read confirmation https://pkg.go.dev/bufio#Reader
 		_, err = bufio.NewReader(c.conn).ReadString('\n')
 
-		time.Sleep(c.config.LoopPeriod)
 
 
 	}
