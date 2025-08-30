@@ -122,7 +122,7 @@ func (c *Client) waitForWinners() error {
 		if msg != "" {allWinners = append(allWinners, msg)}
 
 	}
-	log.Infof("action: consulta_ganadores | result: success | client_id: client%v | cant_ganadores: %v",c.config.ID, len(allWinners))
+	log.Infof("action: consulta_ganadores | result: success | client_id: %v | cant_ganadores: %v",c.config.ID, len(allWinners))
 	return nil
 }
 
@@ -152,7 +152,10 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 			if err := c.sendEnd(); err != nil {
 				log.Errorf("action: send_end | result: fail | client_id: %v | error: %v", c.config.ID, err)
 			}
-			break
+			if err := c.waitForWinners(); err != nil {
+				log.Errorf("action: wait_winners | result: fail | client_id: %v | error: %v", c.config.ID, err)
+			}
+			return
 		}else if err != nil{
 			log.Errorf("action: read_batch | result: fail | error: %v", err)
 		}
@@ -177,12 +180,6 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 		//read confirmation https://pkg.go.dev/bufio#Reader
 		_, err = bufio.NewReader(c.conn).ReadString('\n')
 
-	}
-
-
-	if err := c.waitForWinners(); err != nil {
-		log.Errorf("action: wait_winners | result: fail | client_id: %v | error: %v", c.config.ID, err)
-		return
 	}
 
 	c.conn.Close()
