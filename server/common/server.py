@@ -123,6 +123,8 @@ class Server:
             msg = "\n".join(results) + "\nWINNERS_END\n"
             try:
                 sock.sendall(msg.encode("utf-8"))
+            except Exception as e:
+                logging.error(f"action: send_winners | result: fail | agency: {agency} | error: {e}")
             finally:
                 sock.close()
     
