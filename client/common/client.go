@@ -137,7 +137,10 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
     defer file.Close()
     scanner := bufio.NewScanner(file)
 
-	c.createClientSocket()
+	c.createClientSocket(); err != nil {
+        log.Errorf("action: create_socket | result: fail | client_id: %v | error: %v", c.config.ID, err)
+        return
+    }
 	defer c.conn.Close() // me aseguro que la conexion se cierre https://go.dev/tour/flowcontrol/12
 	for{
         select {

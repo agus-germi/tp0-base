@@ -93,6 +93,7 @@ class Server:
             text = payload.decode("utf-8").strip()
             if text.startswith("END|"):
                 agency = int(text.split("|")[1])
+                logging.info(f"action: end_message_received | agency: {agency}")
                 with self._all_done:
                     self._agencies_done[agency] = client_sock
                     if len(self._agencies_done) == self._num_clients:
@@ -144,10 +145,12 @@ class Server:
         """
         Read multiple messages from a specific client socket until the client disconnects.
         """
+        client_addr = client_sock.getpeername()
         try:
             while True:
                 header = self._recv_all(client_sock, HEADER_LENGTH)
                 if not header:
+                    logging.info(f"action: handle_client | status: disconnected")
                     break
                 msg_length = (header[0] << 24) | (header[1] << 16) | (header[2] << 8) | header[3]
                 logging.info(f'action: header_received | result: success | msg_length: {msg_length}')
@@ -173,6 +176,8 @@ class Server:
 
         except OSError as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
+        finally:
+            logging.info(f"action: handle_client | client: {client_addr} | status: finished")
 
 
     def __accept_new_connection(self):
