@@ -92,7 +92,7 @@ class Server:
         try:
             text = payload.decode("utf-8").strip()
             if text.startswith("END|"):
-                agency = text.split("|")[1]
+                agency = int(text.split("|")[1])
                 with self._all_done:
                     self._agencies_done[agency] = client_sock
                     if len(self._agencies_done) == self._num_clients:
@@ -108,6 +108,7 @@ class Server:
         with file_lock:
             for bet in load_bets():
                 if has_won(bet):
+                    logging.info(f"BET AGENCY: {type(bet.agency)}")
                     #asumo que puede ganar mas de uno por agencia
                     winners_by_agency.setdefault(bet.agency, []).append(bet.document) 
         return winners_by_agency
@@ -118,7 +119,7 @@ class Server:
 
         for agency in agencies_done:
             sock = agencies_done[agency]
-            results = winners.get(int(agency), [])
+            results = winners.get(agency, [])
             msg = "\n".join(results) + "\nWINNERS_END\n"
             try:
                 sock.sendall(msg.encode("utf-8"))
