@@ -6,7 +6,6 @@ from common.utils import Bet, store_bets, load_bets, has_won
 HEADER_LENGTH = 4
 
 #protejo el acceso al archivo
-file_lock = threading.Lock()
 
 class Server:
     def __init__(self, port, listen_backlog, num_clients):
@@ -21,7 +20,7 @@ class Server:
         self._agencies_done = {}
         self._lock = threading.Lock() #protejo estructuras compartidas
         self._all_done = threading.Condition(self._lock)
-
+        self._file_lock = threading.Lock()
 
     def run(self):
         """
@@ -98,6 +97,8 @@ class Server:
                     self._agencies_done[agency] = client_sock
                     if len(self._agencies_done) == self._num_clients:
                         self._all_done.notify_all()  # despierta al hilo que espera el sorteo
+                        self._agencies_done.clear()
+
                 return agency
         except Exception as e:
             logging.error(f"action: check_end_message | result: fail | error: {e}")
@@ -106,10 +107,9 @@ class Server:
     def _calculate_winners(self):
         winners_by_agency = {}
 
-        with file_lock:
+        with self._file_lock:
             for bet in load_bets():
                 if has_won(bet):
-                    logging.info(f"BET AGENCY: {type(bet.agency)}")
                     #asumo que puede ganar mas de uno por agencia
                     winners_by_agency.setdefault(bet.agency, []).append(bet.document) 
         return winners_by_agency
@@ -168,7 +168,7 @@ class Server:
                     logging.error(f"action: apuesta_recibida | result: fail | cantidad: {total_bets}")
                     client_sock.sendall(b"ERROR\n")
                 else:
-                    with file_lock:
+                    with self._file_lock:
                         store_bets(bets)                    
                     logging.info(f"action: apuesta_recibida | result: success | cantidad: {total_bets}")
                     logging.info(f"action: apuesta_almacenada | result: success")
