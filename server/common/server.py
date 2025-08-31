@@ -97,7 +97,6 @@ class Server:
                     self._agencies_done[agency] = client_sock
                     if len(self._agencies_done) == self._num_clients:
                         self._all_done.notify_all()  # despierta al hilo que espera el sorteo
-                        self._agencies_done.clear()
 
                 return agency
         except Exception as e:
@@ -127,6 +126,7 @@ class Server:
             except Exception as e:
                 logging.error(f"action: send_winners | result: fail | agency: {agency} | error: {e}")
             finally:
+                self._agencies_done.clear()
                 sock.close()
     
     def _wait_for_all(self):
