@@ -1,8 +1,12 @@
 import socket
 import logging
+import threading
 from common.utils import Bet, store_bets, load_bets, has_won
 
 HEADER_LENGTH = 4
+
+#protejo el acceso al archivo
+file_lock = threading.Lock()
 
 class Server:
     def __init__(self, port, listen_backlog, num_clients):
@@ -15,6 +19,8 @@ class Server:
         # -- ej7
         self._num_clients = num_clients
         self._agencies_done = {}
+        self._lock = threading.Lock() #protejo estructuras compartidas
+        self._all_done = threading.Condition(self._lock)
 
 
     def run(self):
@@ -26,10 +32,14 @@ class Server:
         finishes, servers starts to accept new connections again
         """
 
+        coordinator = threading.Thread(target=self._wait_for_all, daemon=True) #coordinador espera a que todas las agencias manden END
+        coordinator.start()
+
         while self._is_running:
             try:
                 client_sock = self.__accept_new_connection()
-                self.__handle_client_connection(client_sock)
+                thread = threading.Thread(target=self.__handle_client_connection, args=(client_sock,), daemon=True)
+                thread.start()
             except OSError as e:
                 logging.error(f"action: accept_connections | result: fail | error: {e}")
                 break
@@ -83,7 +93,10 @@ class Server:
             text = payload.decode("utf-8").strip()
             if text.startswith("END|"):
                 agency = text.split("|")[1]
-                self._agencies_done[agency] = client_sock
+                with self._all_done:
+                    self._agencies_done[agency] = client_sock
+                    if len(self._agencies_done) == self._num_clients:
+                        self._all_done.notify_all()  # despierta al hilo que espera el sorteo
                 return agency
         except Exception as e:
             logging.error(f"action: check_end_message | result: fail | error: {e}")
@@ -91,15 +104,20 @@ class Server:
 
     def _calculate_winners(self):
         winners_by_agency = {}
-        for bet in load_bets():
-            if has_won(bet):
-                #asumo que puede ganar mas de uno por agencia
-                winners_by_agency.setdefault(bet.agency, []).append(bet.document) 
+
+        with file_lock:
+            for bet in load_bets():
+                if has_won(bet):
+                    #asumo que puede ganar mas de uno por agencia
+                    winners_by_agency.setdefault(bet.agency, []).append(bet.document) 
         return winners_by_agency
 
     def _send_results(self, winners: dict):
-        for agency in self._agencies_done:
-            sock = self._agencies_done[agency]
+        with self._lock:
+            agencies_done = dict(self._agencies_done)
+
+        for agency in agencies_done:
+            sock = agencies_done[agency]
             results = winners.get(int(agency), [])
             msg = "\n".join(results) + "\nWINNERS_END\n"
             try:
@@ -107,7 +125,17 @@ class Server:
             finally:
                 sock.close()
     
+    def _wait_for_all(self):
 
+        with self._all_done:
+            while len(self._agencies_done) < self._num_clients:
+                self._all_done.wait()
+
+        #cuando sale del wait ya están todas las agencias
+        winners = self._calculate_winners()
+        logging.info("action: sorteo | result: success")
+        logging.info("action: send_winners | result: in_progress")
+        self._send_results(winners)
 
     def __handle_client_connection(self, client_sock):
         """
@@ -134,18 +162,11 @@ class Server:
                     logging.error(f"action: apuesta_recibida | result: fail | cantidad: {total_bets}")
                     client_sock.sendall(b"ERROR\n")
                 else:
-                    store_bets(bets)
+                    with file_lock:
+                        store_bets(bets)                    
                     logging.info(f"action: apuesta_recibida | result: success | cantidad: {total_bets}")
                     logging.info(f"action: apuesta_almacenada | result: success")
                     client_sock.sendall(b"success\n")
-            
-            #chequeo si ya recibi de todas las agencias
-            if len(self._agencies_done) == self._num_clients:
-                winners = self._calculate_winners()
-                logging.info("action: sorteo | result: success")
-                logging.info("action: send_winners | result: in_progress")
-                self._send_results(winners)
-
 
         except OSError as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
