@@ -150,7 +150,7 @@ class Server:
             while True:
                 header = self._recv_all(client_sock, HEADER_LENGTH)
                 if not header:
-                    logging.info(f"action: handle_client | status: disconnected")
+                    logging.info(f"action: handle_client | result: fail | status: disconnected")
                     break
                 msg_length = (header[0] << 24) | (header[1] << 16) | (header[2] << 8) | header[3]
                 logging.info(f'action: header_received | result: success | msg_length: {msg_length}')
@@ -177,7 +177,7 @@ class Server:
         except OSError as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:
-            logging.info(f"action: handle_client | client: {client_addr} | status: finished")
+            logging.info(f"action: handle_client | result: success | client: {client_addr} | status: finished")
 
 
     def __accept_new_connection(self):
