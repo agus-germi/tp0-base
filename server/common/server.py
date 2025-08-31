@@ -93,7 +93,7 @@ class Server:
             text = payload.decode("utf-8").strip()
             if text.startswith("END|"):
                 agency = int(text.split("|")[1])
-                logging.info(f"action: end_message_received | agency: {agency}")
+                logging.info(f"action: end_message_received | result: success | agency: {agency}")
                 with self._all_done:
                     self._agencies_done[agency] = client_sock
                     if len(self._agencies_done) == self._num_clients:
