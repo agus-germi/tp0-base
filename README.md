@@ -102,12 +102,46 @@ Los volúmenes definidos para los archivos de configuración son del tipo **Bind
 Además, se eliminó la línea `COPY ./client/config.yaml /config.yaml` del Dockerfile del cliente. Esto asegura que el archivo de configuración no se copie en la imagen y solo se monte dinámicamente  al crear el contenedor.
 
 ### Ejercicio N°3:
-Crear un script de bash `validar-echo-server.sh` que permita verificar el correcto funcionamiento del servidor utilizando el comando `netcat` para interactuar con el mismo. Dado que el servidor es un echo server, se debe enviar un mensaje al servidor y esperar recibir el mismo mensaje enviado.
 
-En caso de que la validación sea exitosa imprimir: `action: test_echo_server | result: success`, de lo contrario imprimir:`action: test_echo_server | result: fail`.
+Para resolver este ejercicio, creé el script `validar-echo-server.sh` en la raíz del proyecto. El objetivo del script es verificar que el servidor funcione correctamente como echo server, es decir, que responda con el mismo mensaje que recibe.
 
-El script deberá ubicarse en la raíz del proyecto. Netcat no debe ser instalado en la máquina _host_ y no se pueden exponer puertos del servidor para realizar la comunicación (hint: `docker network`). `
+El script utiliza el comando:
 
+```bash
+docker run --rm --network tp0_testing_net busybox sh -c "echo '$MSG' | nc $HOST $PORT"
+```
+
+Este comando ejecuta un contenedor temporal de [busybox](https://hub.docker.com/_/busybox), conecta a la [red interna de Docker (`tp0_testing_net`)](https://docs.docker.com/compose/how-tos/networking/) y usa `netcat` (`nc`) para enviar el mensaje definido en la variable `MSG` al servidor (`server`) en el puerto `12345`. La respuesta del servidor se guarda en la variable `output`.
+
+Luego, el script compara la respuesta recibida con el mensaje enviado. Si ambos coinciden, imprime:
+
+```
+action: test_echo_server | result: success
+```
+
+En caso contrario, imprime:
+
+```
+action: test_echo_server | result: fail
+```
+
+De esta forma, no es necesario instalar [netcat](https://linux.die.net/man/1/nc) en la máquina host ni exponer puertos del servidor, ya que toda la comunicación ocurre dentro de la red de Docker.
+
+#### Ejecución
+
+Antes de correr la validación, asegurarse de que la red y los contenedores estén creados ejecutando:
+
+```bash
+make docker-compose-up
+```
+
+Luego, ejecutar en la raíz del proyecto:
+
+```bash
+./validar-echo-server.sh
+```
+
+El resultado indicará si el servidor está funcionando correctamente como echo server.
 
 ### Ejercicio N°4:
 Modificar servidor y cliente para que ambos sistemas terminen de forma _graceful_ al recibir la signal SIGTERM. Terminar la aplicación de forma _graceful_ implica que todos los _file descriptors_ (entre los que se encuentran archivos, sockets, threads y procesos) deben cerrarse correctamente antes que el thread de la aplicación principal muera. Loguear mensajes en el cierre de cada recurso (hint: Verificar que hace el flag `-t` utilizado en el comando `docker compose down`).
