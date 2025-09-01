@@ -93,7 +93,7 @@ Ejemplo:
 Esto produce un archivo **docker-compose-dev.yaml** con la definición de 5 clientes.
 
 
-## Ejercicio N°2: Configuración dinámica con Docker Volumes
+### Ejercicio N°2
 
 Para permitir que los cambios en los archivos de configuración (`config.ini` para el servidor y `config.yaml` para el cliente) se apliquen sin necesidad de reconstruir las imágenes de Docker, modifiqué los Dockerfiles y la definición de los servicios en el archivo `docker-compose`.
 
