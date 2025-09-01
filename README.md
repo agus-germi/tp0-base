@@ -1,12 +1,3 @@
-## Ejercicio N°2: Configuración dinámica con Docker Volumes
-
-Para permitir que los cambios en los archivos de configuración (`config.ini` para el servidor y `config.yaml` para el cliente) se apliquen sin necesidad de reconstruir las imágenes de Docker, modifiqué los Dockerfiles y la definición de los servicios en el archivo `docker-compose`.
-
-Los volúmenes definidos para los archivos de configuración son del tipo **Bind Mounts**. Esto significa que los archivos locales (`config.ini` y `config.yaml`) se vinculan directamente con los archivos dentro de los contenedores, permitiendo que cualquier cambio realizado en el host se refleje automáticamente en el contenedor sin reconstruir la imagen.
-
-Además, se eliminó la línea `COPY ./client/config.yaml /config.yaml` del Dockerfile del cliente. Esto asegura que el archivo de configuración no se copie en la imagen y solo se monte dinámicamente  al crear el contenedor.
-
-
 # TP0: Docker + Comunicaciones + Concurrencia
 
 En el presente repositorio se provee un esqueleto básico de cliente/servidor, en donde todas las dependencias del mismo se encuentran encapsuladas en containers. Los alumnos deberán resolver una guía de ejercicios incrementales, teniendo en cuenta las condiciones de entrega descritas al final de este enunciado.
@@ -102,16 +93,13 @@ Ejemplo:
 Esto produce un archivo **docker-compose-dev.yaml** con la definición de 5 clientes.
 
 
-### Ejercicio N°2:
-Para permitir que los cambios en los archivos de configuración (config.ini para el servidor y config.yaml para el cliente) se apliquen sin necesidad de reconstruir las imágenes de Docker, modifiqué los Dockerfiles y la definición de los servicios en el archivo docker-compose.
+## Ejercicio N°2: Configuración dinámica con Docker Volumes
 
-La solución consiste en:
+Para permitir que los cambios en los archivos de configuración (`config.ini` para el servidor y `config.yaml` para el cliente) se apliquen sin necesidad de reconstruir las imágenes de Docker, modifiqué los Dockerfiles y la definición de los servicios en el archivo `docker-compose`.
 
-Montar los archivos de configuración como volúmenes en los contenedores. Así, cualquier cambio realizado en los archivos locales se refleja automáticamente dentro de los contenedores.
-En el docker-compose, se especifica la opción volumes para cada servicio, vinculando el archivo de configuración local con el archivo dentro del contenedor.
-Los Dockerfiles no copian los archivos de configuración en la imagen, permitiendo que sean inyectados dinámicamente al momento de crear el contenedor.
-De esta forma, los cambios en la configuración se aplican de inmediato, sin reconstruir imágenes
+Los volúmenes definidos para los archivos de configuración son del tipo **Bind Mounts**. Esto significa que los archivos locales (`config.ini` y `config.yaml`) se vinculan directamente con los archivos dentro de los contenedores, permitiendo que cualquier cambio realizado en el host se refleje automáticamente en el contenedor sin reconstruir la imagen.
 
+Además, se eliminó la línea `COPY ./client/config.yaml /config.yaml` del Dockerfile del cliente. Esto asegura que el archivo de configuración no se copie en la imagen y solo se monte dinámicamente  al crear el contenedor.
 
 ### Ejercicio N°3:
 Crear un script de bash `validar-echo-server.sh` que permita verificar el correcto funcionamiento del servidor utilizando el comando `netcat` para interactuar con el mismo. Dado que el servidor es un echo server, se debe enviar un mensaje al servidor y esperar recibir el mismo mensaje enviado.
