@@ -42,15 +42,39 @@ class Server:
         except Exception as e:
             logging.error(f"action: close_socket | result: fail")
 
-    def recv_all(self, client_sock, n):
-        data = b''
-        while len(data) < n:
-            chunk = client_sock.recv(n-len(data))
+    def recv_message(self, client_sock):
+        """
+        Receives a message from the given client socket.
 
-            if not chunk:
+        This method first reads a fixed-size header to determine the length of the incoming message.
+        It then reads the exact number of bytes specified by the header.
+        If the connection is closed or an error occurs before the full message is received, it returns None.
+        On success, it returns the decoded message as a UTF-8 string.
+
+        Args:
+            client_sock (socket.socket): The client socket to read from.
+
+        Returns:
+            str or None: The received message as a string, or None if an error or disconnect occurs.
+        """
+        try:
+            header_data = client_sock.recv(HEADER_LENGTH)
+            if len(header_data) < HEADER_LENGTH:
                 return None
-            data += chunk
-        return data
+
+            msg_length = int.from_bytes(header_data, byteorder='big')
+            logging.info(f"largo mensaje {msg_length}")
+            data = b''
+            while len(data) < msg_length:
+                chunk = client_sock.recv(msg_length - len(data))
+                if not chunk:
+                    return None
+                data += chunk
+
+            return data.decode('utf-8').strip()
+        except OSError as e:
+            logging.error(f"action: recv_message | result: fail | error: {e}", exc_info=True)
+            return None
 
 
     def __handle_client_connection(self, client_sock):
@@ -62,20 +86,11 @@ class Server:
         """
         try:
             
-            header = self.recv_all(client_sock, HEADER_LENGTH)
-            if not header:
+            msg = self.recv_message(client_sock)
+            if not msg:
                 client_sock.close()
                 return
             
-            msg_length = (header[0] << 24) | (header[1] << 16) | (header[2] << 8) | header[3]
-            logging.info(f'action: header_received | result: success | msg_length: {msg_length}')
-
-            data = self.recv_all(client_sock, msg_length)
-            if not data:
-                client_sock.close()
-                return
-            
-            msg = data.decode('utf-8').strip()
             addr = client_sock.getpeername()
             campos = msg.split('|')
 
@@ -98,7 +113,7 @@ class Server:
             store_bets([bet])
             logging.info(f"action: apuesta_almacenada | result: success | dni: {dni} | numero: {numero}")
             #send client a confirmation https://docs.python.org/3/library/socket.html#socket.socket.sendall
-            client_sock.sendall(b"success\n")
+            client_sock.sendall(b"ACK\n")
 
 
         except OSError as e:

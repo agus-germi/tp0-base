@@ -88,7 +88,6 @@ func (c *Client)  sendMessage(msg string) error{
 }
 
 
-
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 		for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
