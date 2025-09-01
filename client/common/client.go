@@ -62,29 +62,28 @@ func (c *Client) createClientSocket() error {
 }
 
 // sendMessage handles secsure message sending (avoiding short-write)
-func (c *Client)  sendMessage(msg string) error{ 
+func (c *Client) sendMessage(msg string) error {
     msgBytes := []byte(msg)
-	total := len(msgBytes)
-	sent := 0
-
 
     header := []byte{
-        byte(total >> 24),
-        byte(total >> 16),
-        byte(total >> 8),
-        byte(total),
+        byte(len(msgBytes) >> 24),
+        byte(len(msgBytes) >> 16),
+        byte(len(msgBytes) >> 8),
+        byte(len(msgBytes)),
     }
 
     fullMsg := append(header, msgBytes...)
+    total := len(fullMsg)
+    sent := 0
 
-	for sent < total {
-		n, err := c.conn.Write(fullMsg[sent:])
-		if err != nil {
-			return err
-		}
-		sent += n
-	}
-	return nil
+    for sent < total {
+        n, err := c.conn.Write(fullMsg[sent:])
+        if err != nil {
+            return err
+        }
+        sent += n
+    }
+    return nil
 }
 
 
