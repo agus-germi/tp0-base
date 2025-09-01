@@ -144,7 +144,80 @@ Luego, ejecutar en la raíz del proyecto:
 El resultado indicará si el servidor está funcionando correctamente como echo server.
 
 ### Ejercicio N°4:
-Modificar servidor y cliente para que ambos sistemas terminen de forma _graceful_ al recibir la signal SIGTERM. Terminar la aplicación de forma _graceful_ implica que todos los _file descriptors_ (entre los que se encuentran archivos, sockets, threads y procesos) deben cerrarse correctamente antes que el thread de la aplicación principal muera. Loguear mensajes en el cierre de cada recurso (hint: Verificar que hace el flag `-t` utilizado en el comando `docker compose down`).
+Para resolver el , implementé la terminación _graceful_ en ambos sistemas, asegurando el cierre correcto de sockets y recursos al recibir la señal SIGTERM.
+Las librerias usadas fueron las siguientes (todas correspondientes a las librerias estandar de ambos lenguajes):
+- Python: [_signal_](https://docs.python.org/3/library/signal.html)
+- Go: 
+  - [_os_](https://pkg.go.dev/os)
+  - [_os/signal_](https://pkg.go.dev/os/signal)
+  - [_syscall_](https://pkg.go.dev/syscall)
+#### Flujo de terminación graceful
+
+**Cliente (Golang)**
+
+1. **Escucha de señales:**  
+   En [main.go](https://github.com/agus-germi/tp0-base/blob/ej4/client/main.go#L117-L118), se crea un canal para recibir señales y se configura para escuchar SIGINT y SIGTERM:
+   ```go
+   sigChan := make(chan os.Signal, 1)
+   signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+   client.StartClientLoop(sigChan)
+   ```
+
+2. **Cierre de recursos:**  
+   En [client.go](https://github.com/agus-germi/tp0-base/blob/ej4/client/common/client.go#L57-L62), dentro del bucle principal, se verifica si se recibió una señal. Si es así, se cierra el socket y se imprime un mensaje de log:
+   ```go
+   select {
+   case  <-sigChan:
+       log.Infof("action: exit | result: success | client_id: %v", c.config.ID)
+       if c.conn != nil {
+           c.conn.Close()
+       }
+       return
+   default:
+       // ...envío de mensaje y recepción...
+   }
+   ```
+
+**Servidor (Python)**
+
+1. **Escucha de señales:**  
+   En [main.py](https://github.com/agus-germi/tp0-base/blob/ej4/server/main.py#L55-L61), se define un handler para SIGTERM:
+   ```python
+   def handle_sigterm(signum, frame):
+       logging.info("action: signal_received | result: in_progress")
+       server.shutdown()
+       logging.info("action: exit | result: success")
+       exit(0)
+
+   signal.signal(signal.SIGTERM, handle_sigterm)
+   ```
+
+2. **Control de ejecución y cierre de recursos:**  
+   En la clase [Server](https://github.com/agus-germi/tp0-base/blob/ej4/server/common/server.py#L13) (`server.py`), agregué la variable `self._is_running` para controlar el ciclo principal del servidor. Esta variable permite finalizar el bucle de aceptación de conexiones cuando se recibe una señal de cierre:
+   ```python
+   class Server:
+       def __init__(self, port, listen_backlog):
+           # ...
+           self._is_running = True
+   
+       def run(self):
+           while self._is_running:
+               # ...
+   
+       def shutdown(self):
+           self._is_running = False
+           try:
+               self._server_socket.close()
+               logging.info("action: close_socket | result: success")
+           except Exception as e:
+               logging.error(f"action: close_socket | result: fail")
+   ```
+   Al llamar a `shutdown()`, se pone `self._is_running = False`, lo que hace que el bucle principal termine y el socket se cierre correctamente.
+
+_También se maneja SIGINT para permitir cierre con Ctrl+C._
+
+
+
 
 ## Parte 2: Repaso de Comunicaciones
 
