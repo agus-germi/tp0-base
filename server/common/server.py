@@ -30,6 +30,11 @@ class Server:
                 break
     
     def shutdown(self):
+        """
+        Gracefully shuts down the server by stopping the main loop and closing the server socket.
+        Sets the _is_running flag to False to exit the main loop, then attempts to close the server socket.
+        Logs the result of the socket closure.
+        """
         self._is_running = False
         try:
             self._server_socket.close()
