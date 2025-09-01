@@ -76,22 +76,22 @@ client1 exited with code 0
 En esta primera parte del trabajo práctico se plantean una serie de ejercicios que sirven para introducir las herramientas básicas de Docker que se utilizarán a lo largo de la materia. El entendimiento de las mismas será crucial para el desarrollo de los próximos TPs.
 
 ### Ejercicio N°1:
-Definir un script de bash `generar-compose.sh` que permita crear una definición de Docker Compose con una cantidad configurable de clientes.  El nombre de los containers deberá seguir el formato propuesto: client1, client2, client3, etc. 
+Se definió un script `generar-compose.sh` en la raíz del proyecto para generar dinámicamente un archivo de definición de Docker Compose con una cantidad configurable de clientes.
+La lógica de construcción del archivo YAML se implementó en un script auxiliar en Python `mi-generador.py`, lo que permitió manipular de forma más flexible el contenido.
+Los nombres de los contenedores siguen el formato client1, client2, client3, etc. 
 
-El script deberá ubicarse en la raíz del proyecto y recibirá por parámetro el nombre del archivo de salida y la cantidad de clientes esperados:
+#### Ejecución
+- El script recibe dos parámetros:
+  1. Nombre del archivo de salida.
+  2. Cantidad de clientes a generar.
 
-`./generar-compose.sh docker-compose-dev.yaml 5`
-
-Considerar que en el contenido del script pueden invocar un subscript de Go o Python:
-
+Ejemplo:
+```bash
+./generar-compose.sh docker-compose-dev.yaml 5
 ```
-#!/bin/bash
-echo "Nombre del archivo de salida: $1"
-echo "Cantidad de clientes: $2"
-python3 mi-generador.py $1 $2
-```
 
-En el archivo de Docker Compose de salida se pueden definir volúmenes, variables de entorno y redes con libertad, pero recordar actualizar este script cuando se modifiquen tales definiciones en los sucesivos ejercicios.
+Esto produce un archivo **docker-compose-dev.yaml** con la definición de 5 clientes.
+
 
 ### Ejercicio N°2:
 Modificar el cliente y el servidor para lograr que realizar cambios en el archivo de configuración no requiera reconstruír las imágenes de Docker para que los mismos sean efectivos. La configuración a través del archivo correspondiente (`config.ini` y `config.yaml`, dependiendo de la aplicación) debe ser inyectada en el container y persistida por fuera de la imagen (hint: `docker volumes`).
