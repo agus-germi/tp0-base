@@ -63,7 +63,6 @@ class Server:
                 return None
 
             msg_length = int.from_bytes(header_data, byteorder='big')
-            logging.info(f"largo mensaje {msg_length}")
             data = b''
             while len(data) < msg_length:
                 chunk = client_sock.recv(msg_length - len(data))

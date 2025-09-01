@@ -6,6 +6,7 @@ import (
 	"net"
 	"time"
 	"os"
+	"strings"
 	"github.com/op/go-logging"
 )
 
@@ -61,6 +62,22 @@ func (c *Client) createClientSocket() error {
 	return nil
 }
 
+// ------------------ Capa de Protocolo ------------------
+// serializeBet returns serialized payload
+func serializeBet(bet Bet) string {
+	return fmt.Sprintf("%s|%s|%s|%s|%s|%s\n",
+		bet.Nombre, bet.Apellido, bet.DNI, bet.Nacimiento, bet.Numero, bet.Agencia,
+	)
+}
+
+// validateAck checks if the server response matches the expected "ACK".
+func validateAck(resp string) bool {
+	resp = strings.TrimSpace(resp)
+	return resp == "ACK"
+}
+
+// ------------------ Capa de Transporte ------------------
+
 // sendMessage handles secsure message sending (avoiding short-write)
 func (c *Client) sendMessage(msg string) error {
     msgBytes := []byte(msg)
@@ -86,6 +103,16 @@ func (c *Client) sendMessage(msg string) error {
     return nil
 }
 
+// recvMessage reads a message from the server until a newline character is found.
+func (c *Client) recvMessage() (string, error) {
+	reader := bufio.NewReader(c.conn)
+	resp, err := reader.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	return resp, nil
+}
+
 
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop(sigChan chan os.Signal) {
@@ -101,7 +128,7 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 				// Create the connection to the server in every loop iteration
 				c.createClientSocket()
 
-				bet := Bet{ // [ ] check if env variables in doker file,??
+				bet := Bet{ 
 					Nombre:      os.Getenv("CLI_NOMBRE"),
 					Apellido:    os.Getenv("CLI_APELLIDO"),
 					DNI:         os.Getenv("CLI_DNI"),
@@ -111,7 +138,7 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 				}
 
 				//serialize https://pkg.go.dev/fmt#Sprintf
-				message := fmt.Sprintf("%s|%s|%s|%s|%s|%s\n", bet.Nombre, bet.Apellido, bet.DNI, bet.Nacimiento, bet.Numero, bet.Agencia)
+				message := serializeBet(bet)
 
 				if err := c.sendMessage(message); err != nil {
 					log.Errorf("action: apuesta_enviada | result: fail | dni: %v | numero: %v | error: %v", bet.DNI, bet.Numero, err)
@@ -122,10 +149,12 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 				log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v", bet.DNI, bet.Numero)
 
 				//read confirmation https://pkg.go.dev/bufio#Reader
-				_, err := bufio.NewReader(c.conn).ReadString('\n')
+				resp, err := c.recvMessage()
 				c.conn.Close()
 
 				if err != nil {
+					log.Errorf("action: apuesta_almacenada | result: fail | dni: %v | numero: %v | error: %v", bet.DNI, bet.Numero, err)
+				} else if !validateAck(resp){
 					log.Errorf("action: apuesta_almacenada | result: fail | dni: %v | numero: %v | error: %v", bet.DNI, bet.Numero, err)
 				}
 				time.Sleep(c.config.LoopPeriod)
