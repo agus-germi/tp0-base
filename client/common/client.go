@@ -61,40 +61,24 @@ func (c *Client) createClientSocket() error {
 	return nil
 }
 
-// sendHeader
-func(c*Client) sendHeader(length int) error {
-    
-	header := []byte{
-        byte(length >> 24),
-        byte(length >> 16),
-        byte(length >> 8),
-        byte(length),
-    }
-
-	sent := 0
-    for sent < HeaderLength {
-        n, err := c.conn.Write(header[sent:])
-        if err != nil {
-            return err
-        }
-        sent += n
-    }
-	return nil
-}
-
 // sendMessage handles secsure message sending (avoiding short-write)
 func (c *Client)  sendMessage(msg string) error{ 
     msgBytes := []byte(msg)
 	total := len(msgBytes)
 	sent := 0
 
-	if err := c.sendHeader(total); err != nil {
-	    return err
-	}
-	log.Infof("action: header_sent | result: success | msg_length: %v", total)
+
+    header := []byte{
+        byte(total >> 24),
+        byte(total >> 16),
+        byte(total >> 8),
+        byte(total),
+    }
+
+    fullMsg := append(header, msgBytes...)
 
 	for sent < total {
-		n, err := c.conn.Write(msgBytes[sent:])
+		n, err := c.conn.Write(fullMsg[sent:])
 		if err != nil {
 			return err
 		}
