@@ -227,23 +227,34 @@ Las secciones de repaso del trabajo práctico plantean un caso de uso denominado
 Modificar la lógica de negocio tanto de los clientes como del servidor para nuestro nuevo caso de uso.
 
 #### Cliente
-Emulará a una _agencia de quiniela_ que participa del proyecto. Existen 5 agencias. Deberán recibir como variables de entorno los campos que representan la apuesta de una persona: nombre, apellido, DNI, nacimiento, numero apostado (en adelante 'número'). Ej.: `NOMBRE=Santiago Lionel`, `APELLIDO=Lorca`, `DOCUMENTO=30904465`, `NACIMIENTO=1999-03-17` y `NUMERO=7574` respectivamente.
-
-Los campos deben enviarse al servidor para dejar registro de la apuesta. Al recibir la confirmación del servidor se debe imprimir por log: `action: apuesta_enviada | result: success | dni: ${DNI} | numero: ${NUMERO}`.
-
+Cada cliente simula una agencia de quiniela.El cliente obtiene los datos de la apuesta desde variables de entorno definidas en el docker-compose.yaml. Cada contenedor cliente se configura con su propio conjunto de variables de entorno que representan la apuesta `Bet`.si
 
 
 #### Servidor
-Emulará a la _central de Lotería Nacional_. Deberá recibir los campos de la cada apuesta desde los clientes y almacenar la información mediante la función `store_bet(...)` para control futuro de ganadores. La función `store_bet(...)` es provista por la cátedra y no podrá ser modificada por el alumno.
-Al persistir se debe imprimir por log: `action: apuesta_almacenada | result: success | dni: ${DNI} | numero: ${NUMERO}`.
+El servidor representa la central de Lotería Nacional. Al recibir una apuesta, la deserializa y almacena utilizando la función provista `store_bets(...)`, sin modificar su implementación. Si la apuesta se almacena correctamente, registra en el `log: action: apuesta_almacenada | result: success | dni: ${DNI} | numero: ${NUMERO}`
 
-#### Comunicación:
-Se deberá implementar un módulo de comunicación entre el cliente y el servidor donde se maneje el envío y la recepción de los paquetes, el cual se espera que contemple:
-* Definición de un protocolo para el envío de los mensajes.
-* Serialización de los datos.
-* Correcta separación de responsabilidades entre modelo de dominio y capa de comunicación.
-* Correcto empleo de sockets, incluyendo manejo de errores y evitando los fenómenos conocidos como [_short read y short write_](https://cs61.seas.harvard.edu/site/2018/FileDescriptors/).
+#### Protocolo
+##### Estructura del Mensaje 
+###### Cliente > Servidor
+Cada mensaje que [envía el cliente](https://github.com/agus-germi/tp0-base/blob/ej5/client/common/client.go#L82-L104) tiene la siguiente estructura:
+```bash
+[Header (4 bytes)] + [Payload (UTF-8)]
+```
+- **Header**: Contiene la longitud del payload expresada como un número entero en __big_endian__. Si bien 4 bytes de header es más que suficiente para nuestros mensajes de apuestas, nos deja espacio para posibles extensiones del protocolo.
+- **Payload**: Contiene el mensaje en sí, con el siguiente formato:
+```bash
+Nombre|Apellido|DNI|Nacimiento|Numero|Agencia\n
+```
+###### Servidor > Cliente
 
+Cada vez que el servidor recibe un mensaje válido, responde con un `ACK/n`.
+El cliente, por su parte, [valida](https://github.com/agus-germi/tp0-base/blob/ej5/client/common/client.go#L74-L76) que el mensaje recibido corresponda efectivamente a un ACK antes de continuar.
+
+- Esto cumple una doble función:
+  1. Evitar falsos positivos (ejemplo: si se recibiera otro tipo de mensaje por error).
+  2. Asegurar al cliente que el servidor procesó correctamente la solicitud.
+
+![Envio de Mensajes](assets/images/ej5_comunication.png)
 
 ### Ejercicio N°6:
 Modificar los clientes para que envíen varias apuestas a la vez (modalidad conocida como procesamiento por _chunks_ o _batchs_). 
