@@ -254,20 +254,52 @@ El cliente, por su parte, [valida](https://github.com/agus-germi/tp0-base/blob/e
   1. Evitar falsos positivos (ejemplo: si se recibiera otro tipo de mensaje por error).
   2. Asegurar al cliente que el servidor procesó correctamente la solicitud.
 
-![Envio de Mensajes](assets/images/ej5_comunication.png)
+![#Envio de Mensajes](assets/images/ej5_comunication.png)
 
 ### Ejercicio N°6:
-Modificar los clientes para que envíen varias apuestas a la vez (modalidad conocida como procesamiento por _chunks_ o _batchs_). 
-Los _batchs_ permiten que el cliente registre varias apuestas en una misma consulta, acortando tiempos de transmisión y procesamiento.
 
-La información de cada agencia será simulada por la ingesta de su archivo numerado correspondiente, provisto por la cátedra dentro de `.data/datasets.zip`.
-Los archivos deberán ser inyectados en los containers correspondientes y persistido por fuera de la imagen (hint: `docker volumes`), manteniendo la convencion de que el cliente N utilizara el archivo de apuestas `.data/agency-{N}.csv` .
+En este ejercicio, se modificó la lógica del cliente y del servidor para permitir el envío y procesamiento de múltiples apuestas en un solo mensaje, utilizando la modalidad de batches (chunks). Esto mejora la eficiencia de la transmisión y el procesamiento, ya que se reduce la cantidad de mensajes intercambiados y se optimiza el uso de la red.
 
-En el servidor, si todas las apuestas del *batch* fueron procesadas correctamente, imprimir por log: `action: apuesta_recibida | result: success | cantidad: ${CANTIDAD_DE_APUESTAS}`. En caso de detectar un error con alguna de las apuestas, debe responder con un código de error a elección e imprimir: `action: apuesta_recibida | result: fail | cantidad: ${CANTIDAD_DE_APUESTAS}`.
+###### Cliente > Servidor
+El cliente implementa la funcionalidad de enviar apuestas a un servidor de forma eficiente utilizando **batch processing**. Cada cliente representa a una agencia y toma su archivo de apuestas correspondiente (bets.csv), que es inyectado en el contenedor mediante un volumen de Docker.
 
-La cantidad máxima de apuestas dentro de cada _batch_ debe ser configurable desde config.yaml. Respetar la clave `batch: maxAmount`, pero modificar el valor por defecto de modo tal que los paquetes no excedan los 8kB. 
+El intercambio de mensajes entre Cliente-Servidor se mantiene igual que como especifica la imágen del ej5. 
+Con la pequeña modificación a continuación mencionada.
 
-Por su parte, el servidor deberá responder con éxito solamente si todas las apuestas del _batch_ fueron procesadas correctamente.
+#### Protocolo
+En este ejercicio, el protocolo sufre una pequeña adaptación. Como dijimos ya no mandamos _una_ apuesta, sino que mandamos de a  _batches_. 
+1. **Serialización de Apuestas**
+    Cada apuesta se serializa en el siguiente formato:
+   ```bash
+    Nombre|Apellido|DNI|Nacimiento|Numero|Agencia
+    ```
+2. **Batch de Apuestas**
+   - Varias apuestas se concatenan con `,` formando un batch. Ejemplo de un batch de 3 apuestas:
+       ```bash
+        Juan|Perez|12345678|2000-01-01|5|001,Laura|Gomez|87654321|1995-12-12|7|001,Carlos|Lopez|11223344|1990-06-06|9|001
+    ```
+3. **Header del mensaje**
+    - El header sigue teniendo un largo de _4_ _bytes_. Pero, en esta adaptación del protocolo el header indica la longitud total del batch enviado. Esto permite al servidor leer exactamente el tamaño del batch y procesar todas las apuestas de manera átomica.
+    - La estructura seguirá siendo de la forma:
+    ```bash
+    [Header (4 bytes)] + [Payload (UTF-8)]
+    ```
+    Donde el payload, será ahora el batch enviado. 
+
+6. **Configuración del BatchSize**
+   - Cálculo _aproximado_ del tamaño de cada apuesta:
+     - `Nombre`: 15-40 bytes
+     - `Apellido` : 15-40 bytes
+     - `DNI` : 8 bytes
+     - `Nacimiento`: 10 bytes
+     - `Numero`: 4 bytes
+     - `Agencia`: 4 bytes
+     - `Delimitadores`: 5 bytes
+     - `Coma`: 1 bytes (cada apuesta esta separada de la siguiente con `,`)
+
+    Por lo tanto tengo un total aproximado por apuesta de: 112 bytes. Para asegurarme efectivamente de no pasarme de los *8kB*, lo llevo a una **cota superior de 120 bytes por apuesta**. 
+
+    >$batch\_Amount = \left\lfloor \frac{8192}{120} \right\rfloor = 68$
 
 ### Ejercicio N°7:
 
