@@ -2,6 +2,7 @@ package common
 
 import (
 	"bufio"
+	"os"
 	"strings" //since used in main i use same library
 )
 
@@ -17,6 +18,7 @@ type Bet struct {
 	Agencia			string
 }
 
+// getBets reads up to batchSize bets from a bufio.Scanner, parsing each line into a Bet struct.
 func getBets(scanner *bufio.Scanner, batchSize int)([]Bet, error, bool){
 	var bets []Bet
 	for len(bets) < batchSize && scanner.Scan() {
@@ -48,4 +50,14 @@ func getBets(scanner *bufio.Scanner, batchSize int)([]Bet, error, bool){
 		return nil, nil,true //  true= EOF > fin de archivo
 	}
 	return bets,nil, false
+}
+
+// openBetFile opens the bets CSV file and returns a scanner.
+// It also returns the opened file so the caller can properly close it later.
+func openBetFile(path string) (*os.File, *bufio.Scanner, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	return file, bufio.NewScanner(file), nil
 }

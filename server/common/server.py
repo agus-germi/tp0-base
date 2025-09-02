@@ -42,17 +42,45 @@ class Server:
         except Exception as e:
             logging.error(f"action: close_socket | result: fail")
 
-    def recv_all(self, client_sock, n):
-        data = b''
-        while len(data) < n:
-            chunk = client_sock.recv(n-len(data))
-            if not chunk:
+    def recv_message(self, client_sock):
+        """
+        Receives a message from the given client socket.
+
+        This method first reads a fixed-size header to determine the length of the incoming message.
+        It then reads the exact number of bytes specified by the header.
+        If the connection is closed or an error occurs before the full message is received, it returns None.
+        On success, it returns the decoded message as a UTF-8 string.
+
+        Args:
+            client_sock (socket.socket): The client socket to read from.
+
+        Returns:
+            str or None: The received message as a string, or None if an error or disconnect occurs.
+        """
+        try:
+            header_data = client_sock.recv(HEADER_LENGTH)
+            if len(header_data) < HEADER_LENGTH:
                 return None
-            data += chunk
-        return data
+
+            msg_length = int.from_bytes(header_data, byteorder='big')
+            data = b''
+            while len(data) < msg_length:
+                chunk = client_sock.recv(msg_length - len(data))
+                if not chunk:
+                    return None
+                data += chunk
+            return data.decode('utf-8').strip()
+        except OSError as e:
+            logging.error(f"action: recv_message | result: fail | error: {e}", exc_info=True)
+            return None
 
     def parse_payload(self, payload):
-        msg = payload.decode('utf-8').strip().split('\n')
+        """
+        Parses a payload string containing bet information and returns a list of Bet objects, an error flag, and the total number of bets   
+        The payload is expected to be a string where the first line contains comma-separated bets. Each bet is represented as six fields separated by '|':
+        first_name|last_name|document|birthdate|number|agency   
+        """
+        msg = payload.split('\n')
         bets = []
         has_error = False
         total_bets = 0
@@ -86,17 +114,12 @@ class Server:
         """
         try:
             while True:
-                header = self.recv_all(client_sock, HEADER_LENGTH)
-                if not header:
-                    break
-                msg_length = (header[0] << 24) | (header[1] << 16) | (header[2] << 8) | header[3]
-                logging.info(f'action: header_received | result: success | msg_length: {msg_length}')
+                msg = self.recv_message(client_sock)
+                if not msg:
+                    client_sock.close()
+                    return
 
-                data = self.recv_all(client_sock, msg_length)
-                if not data:
-                    break
-
-                bets, has_error, total_bets = self.parse_payload(data)
+                bets, has_error, total_bets = self.parse_payload(msg)
                 if has_error:
                     logging.error(f"action: apuesta_recibida | result: fail | cantidad: {total_bets}")
                     client_sock.sendall(b"ERROR\n")
@@ -104,7 +127,7 @@ class Server:
                     store_bets(bets)
                     logging.info(f"action: apuesta_recibida | result: success | cantidad: {total_bets}")
                     logging.info(f"action: apuesta_almacenada | result: success")
-                    client_sock.sendall(b"success\n")
+                    client_sock.sendall(b"ACK\n")
 
         except OSError as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
