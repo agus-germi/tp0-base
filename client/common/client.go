@@ -137,7 +137,7 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
     defer file.Close()
     scanner := bufio.NewScanner(file)
 
-	c.createClientSocket(); err != nil {
+	if err := c.createClientSocket(); err != nil {
         log.Errorf("action: create_socket | result: fail | client_id: %v | error: %v", c.config.ID, err)
         return
     }
