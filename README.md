@@ -277,7 +277,7 @@ En este ejercicio, el protocolo sufre una pequeña adaptación. Como dijimos ya 
    - Varias apuestas se concatenan con `,` formando un batch. Ejemplo de un batch de 3 apuestas:
        ```bash
         Juan|Perez|12345678|2000-01-01|5|001,Laura|Gomez|87654321|1995-12-12|7|001,Carlos|Lopez|11223344|1990-06-06|9|001
-    ```
+        ```
 3. **Header del mensaje**
     - El header sigue teniendo un largo de _4_ _bytes_. Pero, en esta adaptación del protocolo el header indica la longitud total del batch enviado. Esto permite al servidor leer exactamente el tamaño del batch y procesar todas las apuestas de manera átomica.
     - La estructura seguirá siendo de la forma:
