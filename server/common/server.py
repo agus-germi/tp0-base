@@ -47,17 +47,45 @@ class Server:
         except Exception as e:
             logging.error(f"action: close_socket | result: fail")
 
-    def _recv_all(self, client_sock, n):
-        data = b''
-        while len(data) < n:
-            chunk = client_sock.recv(n-len(data))
-            if not chunk:
-                return None
-            data += chunk
-        return data
+    def recv_message(self, client_sock):
+        """
+        Receives a message from the given client socket.
 
-    def _parse_payload(self, payload):
-        msg = payload.decode('utf-8').strip().split('\n')
+        This method first reads a fixed-size header to determine the length of the incoming message.
+        It then reads the exact number of bytes specified by the header.
+        If the connection is closed or an error occurs before the full message is received, it returns None.
+        On success, it returns the decoded message as a UTF-8 string.
+
+        Args:
+            client_sock (socket.socket): The client socket to read from.
+
+        Returns:
+            str or None: The received message as a string, or None if an error or disconnect occurs.
+        """
+        try:
+            header_data = client_sock.recv(HEADER_LENGTH)
+            if len(header_data) < HEADER_LENGTH:
+                return None
+
+            msg_length = int.from_bytes(header_data, byteorder='big')
+            data = b''
+            while len(data) < msg_length:
+                chunk = client_sock.recv(msg_length - len(data))
+                if not chunk:
+                    return None
+                data += chunk
+            return data.decode('utf-8').strip()
+        except OSError as e:
+            logging.error(f"action: recv_message | result: fail | error: {e}", exc_info=True)
+            return None
+
+    def parse_payload(self, payload):
+        """
+        Parses a payload string containing bet information and returns a list of Bet objects, an error flag, and the total number of bets   
+        The payload is expected to be a string where the first line contains comma-separated bets. Each bet is represented as six fields separated by '|':
+        first_name|last_name|document|birthdate|number|agency   
+        """
+        msg = payload.split('\n')
         bets = []
         has_error = False
         total_bets = 0
@@ -85,9 +113,8 @@ class Server:
 
     def _check_end_message(self, payload, client_sock):
         try:
-            text = payload.decode("utf-8").strip()
-            if text.startswith("END|"):
-                agency = text.split("|")[1]
+            if payload.startswith("END|"):
+                agency = payload.split("|")[1]
                 self._agencies_done[agency] = client_sock
                 return agency
         except Exception as e:
@@ -120,21 +147,16 @@ class Server:
         """
         try:
             while True:
-                header = self._recv_all(client_sock, HEADER_LENGTH)
-                if not header:
-                    break
-                msg_length = (header[0] << 24) | (header[1] << 16) | (header[2] << 8) | header[3]
-                logging.info(f'action: header_received | result: success | msg_length: {msg_length}')
-
-                data = self._recv_all(client_sock, msg_length)
-                if not data:
-                    break
+                msg = self.recv_message(client_sock)
+                if not msg:
+                    client_sock.close()
+                    return
                 
-                client_agency = self._check_end_message(data, client_sock)
+                client_agency = self._check_end_message(msg, client_sock)
                 if client_agency:
                     break
 
-                bets, has_error, total_bets = self._parse_payload(data)
+                bets, has_error, total_bets = self.parse_payload(msg)
                 if has_error:
                     logging.error(f"action: apuesta_recibida | result: fail | cantidad: {total_bets}")
                     client_sock.sendall(b"ERROR\n")
@@ -142,7 +164,7 @@ class Server:
                     store_bets(bets)
                     logging.info(f"action: apuesta_recibida | result: success | cantidad: {total_bets}")
                     logging.info(f"action: apuesta_almacenada | result: success")
-                    client_sock.sendall(b"success\n")
+                    client_sock.sendall(b"ACK\n")
             
             #chequeo si ya recibi de todas las agencias
             if len(self._agencies_done) == self._num_clients:
