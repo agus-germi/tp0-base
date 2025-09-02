@@ -303,16 +303,25 @@ En este ejercicio, el protocolo sufre una pequeña adaptación. Como dijimos ya 
 
 ### Ejercicio N°7:
 
-Modificar los clientes para que notifiquen al servidor al finalizar con el envío de todas las apuestas y así proceder con el sorteo.
-Inmediatamente después de la notificacion, los clientes consultarán la lista de ganadores del sorteo correspondientes a su agencia.
-Una vez el cliente obtenga los resultados, deberá imprimir por log: `action: consulta_ganadores | result: success | cant_ganadores: ${CANT}`.
+En este ejercicio se amplía el protocolo definido en el Ejercicio 6, incorporando el flujo de notificación de fin de envío de apuestas y la notificación de ganadores por agencia.
 
-El servidor deberá esperar la notificación de las 5 agencias para considerar que se realizó el sorteo e imprimir por log: `action: sorteo | result: success`.
-Luego de este evento, podrá verificar cada apuesta con las funciones `load_bets(...)` y `has_won(...)` y retornar los DNI de los ganadores de la agencia en cuestión. Antes del sorteo no se podrán responder consultas por la lista de ganadores con información parcial.
+#### Cliente
+Al igual que en el ejercicio previo, el cliente envía apuestas en lotes (`BatchSize`) y esperaconfirmaciones (`ACK`). Cuando finaliza su archivo de apuestas (`bets.csv`):
+1. Envía un mensaje al servidor con el formato `END|<ID_AGENCIA>\n` para notificar que terminó.
+2. Habiendo notificado que termino, queda a la espera de los resultados del sorteo.
+3. El servidor enviará los resultados del sorteo correspondientes a su agencia y el mensaje finalizará con un `WINNERS_END`.
+4. Una vez recibidos todos los ganadores, el cliente imprime por log:
+`action: consulta_ganadores | result: success | client_id: <ID> | cant_ganadores: <N>`
 
-Las funciones `load_bets(...)` y `has_won(...)` son provistas por la cátedra y no podrán ser modificadas por el alumno.
+#### Servidor
+El servidor sigue tres etapas:
+1. **Recepción de apuestas:**
+    Donde valida los mensajes recibidos (`batchs`), almacena las apuestas (`store_bets`) y responde con `ACK` o `ERROR` según corresponda.
+2. **Notificación de cierre:**
+   Cuando recibe un `END|<ID_AGENCIA>`, guarda el socket de esa agencia en `self._agencies_done`. No ejecuta el sorteo hasta que las agencias que esten conectadas hayan notificado que terminaron.
+3. **Ejecución del sorteo y envío de resultados:**
+    Una vez que todas las agencias terminaron, llama a `load_bets()` y determina ganadores con `has_won(...)`. Envia a cada agencia sus correspondientes ganadores finalizando cada mensaje con un `WINNERS_END`.
 
-No es correcto realizar un broadcast de todos los ganadores hacia todas las agencias, se espera que se informen los DNIs ganadores que correspondan a cada una de ellas.
 
 ## Parte 3: Repaso de Concurrencia
 En este ejercicio es importante considerar los mecanismos de sincronización a utilizar para el correcto funcionamiento de la persistencia.

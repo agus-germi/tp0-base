@@ -112,6 +112,7 @@ class Server:
         return bets, has_error, total_bets
 
     def _check_end_message(self, payload, client_sock):
+        """Check if the message signals the end of an agency's messages and register its socket."""
         try:
             if payload.startswith("END|"):
                 agency = payload.split("|")[1]
@@ -122,6 +123,7 @@ class Server:
         return None
 
     def _calculate_winners(self):
+        """Determine winning bets grouped by agency."""
         winners_by_agency = {}
         for bet in load_bets():
             if has_won(bet):
@@ -130,6 +132,7 @@ class Server:
         return winners_by_agency
 
     def _send_results(self, winners: dict):
+        """Send the list of winners to all registered agencies and close their sockets."""
         for agency in self._agencies_done:
             sock = self._agencies_done[agency]
             results = winners.get(int(agency), [])
@@ -138,8 +141,15 @@ class Server:
                 sock.sendall(msg.encode("utf-8"))
             finally:
                 sock.close()
-    
 
+    def __finalize_if_all_done(self):
+        """Finalize the process when all agencies have submitted bets and sends corresponding results."""
+        if len(self._agencies_done) == self._num_clients:
+            winners = self._calculate_winners()
+            logging.info("action: sorteo | result: success")
+            logging.info("action: send_winners | result: in_progress")
+            self._send_results(winners)
+    
 
     def __handle_client_connection(self, client_sock):
         """
@@ -166,13 +176,7 @@ class Server:
                     logging.info(f"action: apuesta_almacenada | result: success")
                     client_sock.sendall(b"ACK\n")
             
-            #chequeo si ya recibi de todas las agencias
-            if len(self._agencies_done) == self._num_clients:
-                winners = self._calculate_winners()
-                logging.info("action: sorteo | result: success")
-                logging.info("action: send_winners | result: in_progress")
-                self._send_results(winners)
-
+            self.__finalize_if_all_done()
 
         except OSError as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")

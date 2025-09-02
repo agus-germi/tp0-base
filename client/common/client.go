@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"time"
-	"strings"
 	"os"
 	"github.com/op/go-logging"
 )
@@ -54,14 +53,6 @@ func (c *Client) createClientSocket() error {
 	return nil
 }
 
-// avisa que no hay más apuestas
-func (c *Client) sendEnd() error {
-	endMessage := fmt.Sprintf("END|%v\n", c.config.ID)
-	if err := c.sendMessage(endMessage); err != nil {
-		return fmt.Errorf("action: send_end | result: fail | client_id: %v | error: %w", c.config.ID, err)
-	}
-	return nil
-}
 
 // sendMessage handles secsure message sending (avoiding short-write)
 func (c *Client) sendMessage(msg string) error {
@@ -128,26 +119,6 @@ func (c *Client) processBatch(scanner *bufio.Scanner) (bool, error) {
 	return false, nil
 }
 
-
-// queda escuchando ganadores del server
-func (c *Client) waitForWinners() error {
-	log.Infof("action: consulta_ganadores | result: in_progress | client_id: %v", c.config.ID)
-	reader := bufio.NewReader(c.conn)
-	var allWinners []string
-
-	for {
-		msg, err := reader.ReadString('\n')
-		if err != nil {
-			log.Errorf("action: consulta_ganadores | result: fail | err: %v", err)
-		}
-		msg = strings.TrimSpace(msg)	
-		if msg == "WINNERS_END" {break}
-		if msg != "" {allWinners = append(allWinners, msg)}
-
-	}
-	log.Infof("action: consulta_ganadores | result: success | client_id: %v | cant_ganadores: %v",c.config.ID, len(allWinners))
-	return nil
-}
 
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop(sigChan chan os.Signal) {
