@@ -315,11 +315,11 @@ Al igual que en el ejercicio previo, el cliente envía apuestas en lotes (`Batch
 
 #### Servidor
 El servidor sigue tres etapas:
-1. **Recepción de apuestas:**
+[1. **Recepción de apuestas:**](https://github.com/agus-germi/tp0-base/blob/ej7/server/common/server.py#L169-L177)
     Donde valida los mensajes recibidos (`batchs`), almacena las apuestas (`store_bets`) y responde con `ACK` o `ERROR` según corresponda.
-2. **Notificación de cierre:**
-   Cuando recibe un `END|<ID_AGENCIA>`, guarda el socket de esa agencia en `self._agencies_done`. No ejecuta el sorteo hasta que las agencias que esten conectadas hayan notificado que terminaron.
-3. **Ejecución del sorteo y envío de resultados:**
+[2. **Notificación de cierre:**](https://github.com/agus-germi/tp0-base/blob/ej7/server/common/server.py#L114-L123)
+   Cuando recibe un `END|<ID_AGENCIA>`, guarda el socket de esa agencia en `self._agencies_done`. No ejecuta el sorteo [hasta que las agencias que esten conectadas hayan notificado que terminaron](https://github.com/agus-germi/tp0-base/blob/ej7/server/common/server.py#L145-L151).
+[3. **Ejecución del sorteo y envío de resultados:**](https://github.com/agus-germi/tp0-base/blob/ej7/server/common/server.py#L125-L143)
     Una vez que todas las agencias terminaron, llama a `load_bets()` y determina ganadores con `has_won(...)`. Envia a cada agencia sus correspondientes ganadores finalizando cada mensaje con un `WINNERS_END`.
 
 
