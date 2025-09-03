@@ -65,7 +65,7 @@ def main():
         logging.info("action: signal_received | result: in_progress")
         server.shutdown()
         logging.info("action: exit | result: success")
-        exit(0)
+        
 
     signal.signal(signal.SIGTERM, handle_sigterm)
 
@@ -75,7 +75,7 @@ def main():
         logging.info("action: signal_received | signal: SIGINT | result: in_progress | msg: Graceful shutdown initiated")
         server.shutdown()
         logging.info("action: shutdown | result: success | msg: Server shutdown complete")
-        exit(0)
+        
 
 def initialize_log(logging_level):
     """

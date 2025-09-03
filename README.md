@@ -319,7 +319,41 @@ En este ejercicio es importante considerar los mecanismos de sincronización a u
 
 ### Ejercicio N°8:
 
-Modificar el servidor para que permita aceptar conexiones y procesar mensajes en paralelo. En caso de que el alumno implemente el servidor en Python utilizando _multithreading_,  deberán tenerse en cuenta las [limitaciones propias del lenguaje](https://wiki.python.org/moin/GlobalInterpreterLock).
+El objetivo de este ejercicio fue modificar el servidor de apuestas para que pueda:
+1. Aceptar múltiples conexiones de clientes simultáneamente.
+2. Procesar mensajes de manera paralela, manteniendo la integridad de los datos compartidos (como el registro de apuestas y la lista de ganadores).
+
+Para lograr esto, se utilizó Python con la librería [threading](https://docs.python.org/es/dev/library/threading.html#), teniendo en cuenta las limitaciones del [GIL (Global Interpreter Lock)](https://wiki.python.org/moin/GlobalInterpreterLock).
+En cuanto al GIL se tomo la decisión de igualmente usar la librería mencionada anteriormente, la consideré adecuada para este proyecto, ya que las operaciones principales del servidor son de **entrada/salida (I/O)** —lectura de sockets, escritura de archivos y envío de datos por red— donde el GIL se libera mientras se espera la finalización de la operación de I/O. Esto permite que múltiples hilos sean ejecutados concurrentemente sin bloqueo significativo.
+
+>(...) _"Luckily, many potentially blocking or long-running operations, such as I/O, image processing, and NumPy number crunching, happen **outside the GIL**. Therefore it is only in multithreaded programs that spend a lot of time inside the GIL, interpreting CPython bytecode, that the GIL becomes a bottleneck."_ 
+    >><u>Fuente:</u> https://wiki.python.org/moin/GlobalInterpreterLock
+
+#### Arquitectura de hilos
+##### Hilos de Clientes
+Cada vez que un cliente se conecta al servidor, [se crea un **hilo independiente** encargado de atenderlo](https://github.com/agus-germi/tp0-base/blob/ej8/server/common/server.py#L42-L47). Estos hilos ejecutan la [función `__handle_client_connection`](https://github.com/agus-germi/tp0-base/blob/ej8/server/common/server.py#L222-L253), que realiza las siguientes acciones:
+1. Lee mensajes del cliente de manera secuencial desde su socket.
+2. Parsea las apuestas recibidas y valida su formato.
+3. Almacena las apuestas usando un [Lock](https://docs.python.org/es/3.8/library/threading.html#lock-objects) (`_file_lock`) para proteger el acceso a los datos compartidos y evitar condiciones de carrera.
+4. Envía un acuse de recepción (`ACK`) o un mensaje de error (`ERROR`) según corresponda.
+
+El uso de hilos de cliente permite que varios clientes envíen apuestas en paralelo sin bloquear la atención de otros. La concurrencia no se ve afectada significativamente por el GIL porque las llamadas de red (`recv` y `send`) liberan el GIL durante la espera.
+
+##### Hilo Coordinador
+Se implementó un hilo coordinador encargado de calcular los ganadores y enviar los resultados a cada agencia una vez que **todas** hayan enviado su mensaje de finalización (`END`).
+El `target` de este hilo es la [función `_wait_for_all`](https://github.com/agus-germi/tp0-base/blob/ej8/server/common/server.py#L176-L187), que contiene la lógica para:
+1. Esperar a que todas las agencias hayan enviado el mensaje END.
+2. Calcular los ganadores del sorteo (`_calculate_winners`).
+3. Enviar los resultados a cada agencia (`_send_results`).
+4. Limpiar los recursos utilizados por el servidor (`_clean_resources`).
+Dentro de `_wait_for_all`, se utiliza un [objeto **Condition**](https://docs.python.org/es/dev/library/threading.html#condition-objects) (`_all_done`) para esperar de manera eficiente a que todos los clientes hayan finalizado su envío de apuestas. Esto evita el uso de bucles de espera activa y reduce el consumo de CPU.
+Entonces [una vez que todos los clientes enviaron el mensaje de `END`](https://github.com/agus-germi/tp0-base/blob/ej8/server/common/server.py#L135-L138), se notifica mediante un `notify_all()`,  liberando al hilo coordinador para que continúe con el cálculo de ganadores y el envío de resultados. La actualización de `_agencies_done` está protegida por el lock asociado a la condición, garantizando la consistencia de los datos compartidos y evitando condiciones de carrera.
+----------------------------------------------------------------------------------------------------------------------
+> _**(*) Elección de threading sobre multiprocessing**_
+- _**threading**: adecuado para operaciones de I/O concurrentes. Permite compartir fácilmente recursos (listas, diccionarios, locks) entre hilos sin la sobrecarga de inter-proces communication (IPC)._
+- _**multiprocessing**: más indicado para operaciones CPU-intensive, ya que cada proceso tiene su propio GIL y memoria independiente. Sin embargo, requiere mecanismos de comunicación complejos para compartir datos y sincronización, lo cual no es necesario para este servidor._
+
+_En este proyecto, la mayor parte del trabajo es I/O (recepción y envío de datos por sockets, almacenamiento en archivo), por lo que threading ofrece una solución simple y suficiente para cumplir los objetivos del ejercicio._
 
 ## Condiciones de Entrega
 Se espera que los alumnos realicen un _fork_ del presente repositorio para el desarrollo de los ejercicios y que aprovechen el esqueleto provisto tanto (o tan poco) como consideren necesario.
