@@ -14,13 +14,18 @@ class Server:
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self._is_running = True
+        
+        self._client_sockets = []
+        self._client_sockets_lock = threading.Lock()
 
-        # -- ej7
         self._num_clients = num_clients
         self._agencies_done = {}
         self._lock = threading.Lock() #protejo estructuras compartidas
         self._all_done = threading.Condition(self._lock)
         self._file_lock = threading.Lock()
+
+        self._threads = []
+        self._coordinator = None
 
     def run(self):
         """
@@ -31,18 +36,52 @@ class Server:
         finishes, servers starts to accept new connections again
         """
 
-        coordinator = threading.Thread(target=self._wait_for_all, daemon=True) #coordinador espera a que todas las agencias manden END
+        coordinator = threading.Thread(target=self._wait_for_all) #coordinador espera a que todas las agencias manden END
         coordinator.start()
 
         while self._is_running:
             try:
                 client_sock = self.__accept_new_connection()
-                thread = threading.Thread(target=self.__handle_client_connection, args=(client_sock,), daemon=True)
+                thread = threading.Thread(target=self.__handle_client_connection, args=(client_sock,))
+                self._threads.append(thread)
                 thread.start()
             except OSError as e:
                 logging.error(f"action: accept_connections | result: fail | error: {e}")
                 break
+
     
+    def _clean_resources(self):
+        """
+        clean up resources used by the server
+        """
+        for t in self._threads:
+            t.join()
+            logging.info("action: join_thread | result: success")
+
+        if self._coordinator:
+            self._coordinator.join()
+            logging.info("action: join_coordinator | result: success")
+
+    def _close_server_socket(self):
+        """Close the main server socket."""
+        try:
+            self._server_socket.close()
+            logging.info("action: close_socket | result: success")
+        except Exception as e:
+            logging.error(f"action: close_socket | result: fail | error: {e}")
+
+
+    def _close_client_sockets(self):
+        """Close all active client sockets."""
+        with self._client_sockets_lock:
+            for sock in self._client_sockets:
+                try:
+                    sock.shutdown(socket.SHUT_RDWR)
+                    sock.close()
+                except Exception as e:
+                    logging.error(f"action: close_client_socket | result: fail | error: {e}")
+            self._client_sockets.clear()
+
     def shutdown(self):
         """
         Gracefully shuts down the server by stopping the main loop and closing the server socket.
@@ -50,11 +89,9 @@ class Server:
         Logs the result of the socket closure.
         """
         self._is_running = False
-        try:
-            self._server_socket.close()
-            logging.info("action: close_socket | result: success")
-        except Exception as e:
-            logging.error(f"action: close_socket | result: fail")
+        self._close_server_socket()
+        self._close_client_sockets()
+        self._clean_resources()
 
 
     def _parse_payload(self, payload):
@@ -131,8 +168,10 @@ class Server:
             except Exception as e:
                 logging.error(f"action: send_winners | result: fail | agency: {agency} | error: {e}")
             finally:
-                self._agencies_done.clear()
                 sock.close()
+        
+        with self._lock:
+            self._agencies_done.clear()
     
     def _wait_for_all(self):
 
@@ -145,6 +184,7 @@ class Server:
         logging.info("action: sorteo | result: success")
         logging.info("action: send_winners | result: in_progress")
         self._send_results(winners)
+        self._clean_resources()
 
 
     def recv_message(self, client_sock):
@@ -185,7 +225,7 @@ class Server:
         """
         client_addr = client_sock.getpeername()
         try:
-            while True:
+            while self._is_running:
                 msg = self.recv_message(client_sock)
                 if not msg:
                     client_sock.close()
@@ -223,5 +263,8 @@ class Server:
         # Connection arrived
         logging.info('action: accept_connections | result: in_progress')
         c, addr = self._server_socket.accept()
+        with self._client_sockets_lock:
+            self._client_sockets.append(c)
+
         logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
         return c

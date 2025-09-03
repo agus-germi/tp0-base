@@ -177,8 +177,6 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 		}
 
 	}
-
-	c.conn.Close()
 	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
 
 }
