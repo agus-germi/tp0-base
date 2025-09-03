@@ -7,7 +7,7 @@ import (
 	"time"
 	"os"
 	"github.com/op/go-logging"
-	"strings" //usado en main
+
 )
 
 var log = logging.MustGetLogger("log")
@@ -54,14 +54,6 @@ func (c *Client) createClientSocket() error {
 	return nil
 }
 
-// avisa que no hay más apuestas
-func (c *Client) sendEnd() error {
-	endMessage := fmt.Sprintf("END|%v\n", c.config.ID)
-	if err := c.sendMessage(endMessage); err != nil {
-		return fmt.Errorf("action: send_end | result: fail | client_id: %v | error: %w", c.config.ID, err)
-	}
-	return nil
-}
 
 // sendHeader
 func(c*Client) sendHeader(length int) error {
@@ -84,63 +76,82 @@ func(c*Client) sendHeader(length int) error {
 	return nil
 }
 
-// sendMessage handles secsure message sending (avoiding short-write)
-func (c *Client)  sendMessage(msg string) error{ 
-    msgBytes := []byte(msg)
-	total := len(msgBytes)
-	sent := 0
 
-	if err := c.sendHeader(total); err != nil {
-        log.Errorf("action: header_sent | result: fail | error: %v", err)
-        return err
+// sendMessage handles secsure message sending (avoiding short-write)
+func (c *Client) sendMessage(msg string) error {
+    msgBytes := []byte(msg)
+
+    header := []byte{
+        byte(len(msgBytes) >> 24),
+        byte(len(msgBytes) >> 16),
+        byte(len(msgBytes) >> 8),
+        byte(len(msgBytes)),
     }
 
-	for sent < total {
-		n, err := c.conn.Write(msgBytes[sent:])
-		if err != nil {
-			return err
-		}
-		sent += n
-	}
-	return nil
+    fullMsg := append(header, msgBytes...)
+    total := len(fullMsg)
+    sent := 0
+
+    for sent < total {
+        n, err := c.conn.Write(fullMsg[sent:])
+        if err != nil {
+            return err
+        }
+        sent += n
+    }
+    return nil
 }
 
-
-// queda escuchando ganadores del server
-func (c *Client) waitForWinners() error {
-	log.Infof("action: consulta_ganadores | result: in_progress | client_id: %v", c.config.ID)
+// recvMessage reads a message from the server until a newline character is found.
+func (c *Client) recvMessage() (string, error) {
 	reader := bufio.NewReader(c.conn)
-	var allWinners []string
-
-	for {
-		msg, err := reader.ReadString('\n')
-		if err != nil {
-			log.Errorf("action: consulta_ganadores | result: fail | err: %v", err)
-		}
-		msg = strings.TrimSpace(msg)	
-		if msg == "WINNERS_END" {break}
-		if msg != "" {allWinners = append(allWinners, msg)}
-
+	resp, err := reader.ReadString('\n')
+	if err != nil {
+		return "", err
 	}
-	log.Infof("action: consulta_ganadores | result: success | client_id: %v | cant_ganadores: %v",c.config.ID, len(allWinners))
-	return nil
+	return resp, nil
+}
+
+// processBatch reads a batch of bets from the scanner, serializes it,
+// sends it to the server, and validates the acknowledgment response.
+// It returns true if the end of file was reached, or false otherwise.
+func (c *Client) processBatch(scanner *bufio.Scanner) (bool, error) {
+	batch, err, eof := getBets(scanner, c.config.BatchSize)
+	if eof {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+
+	message := serializeBatch(batch, c.config.ID)
+	if err := c.sendMessage(message); err != nil {
+		return false, fmt.Errorf("send message: %w", err)
+	}
+
+	log.Infof("action: batch_sent | result: success | cantidad: %v", len(batch))
+
+	resp, err := c.recvMessage()
+	if err != nil {
+		return false, fmt.Errorf("action: receive_message | result: fail | client_id: %v | error: %v", c.config.ID, err)
+	}
+	if !validateAck(resp) {
+		return false, fmt.Errorf("action: ack | result: fail | client_id: %v | error: %v", c.config.ID, err)
+	}
+	return false, nil
 }
 
 // StartClientLoop Send messages to the client until some time threshold is met
 func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 		
-	file, err := os.Open(fmt.Sprintf("bets.csv"))
+	file, scanner, err := openBetFile("bets.csv")
 	if err != nil {
-    	log.Errorf("action: open_csv | result: fail | client_id: %v | error: %v", c.config.ID, err)
-    	return
-    }
-    defer file.Close()
-    scanner := bufio.NewScanner(file)
+		log.Errorf("action: open_csv | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return
+	}
+	defer file.Close()
 
-	if err := c.createClientSocket(); err != nil {
-        log.Errorf("action: create_socket | result: fail | client_id: %v | error: %v", c.config.ID, err)
-        return
-    }
+	c.createClientSocket()
 	defer c.conn.Close() // me aseguro que la conexion se cierre https://go.dev/tour/flowcontrol/12
 	for{
         select {
@@ -149,8 +160,12 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
             return
         default:
         }
-		//leo bet batch
-		batch, err, eof := getBets(scanner, c.config.BatchSize)
+		
+		eof, err := c.processBatch(scanner)
+		if err != nil {
+			log.Errorf("action: process_batch | result: fail | client_id: %v | error: %v", c.config.ID, err)
+			return
+		}
 		if eof {
 			if err := c.sendEnd(); err != nil {
 				log.Errorf("action: send_end | result: fail | client_id: %v | error: %v", c.config.ID, err)
@@ -159,34 +174,11 @@ func (c *Client) StartClientLoop(sigChan chan os.Signal) {
 				log.Errorf("action: wait_winners | result: fail | client_id: %v | error: %v", c.config.ID, err)
 			}
 			return
-		}else if err != nil{
-			log.Errorf("action: read_batch | result: fail | error: %v", err)
 		}
-		
-		var records []string
-		for _, bet := range batch {
-		    record := bet.Nombre + "|" + bet.Apellido + "|" + bet.DNI + "|" +
-		              bet.Nacimiento + "|" + bet.Numero + "|" + c.config.ID
-		    records = append(records, record)
-		}
-
-		message := strings.Join(records, ",")
-
-		//envio payload
-		if err := c.sendMessage(message); err != nil {
-            log.Errorf("action: batch_sent | result: fail | error: %v", err)
-            return
-        }
-		
-		log.Infof("action: batch_sent | result: success | cantidad: %v", len(batch))
-
-		//read confirmation https://pkg.go.dev/bufio#Reader
-		_, err = bufio.NewReader(c.conn).ReadString('\n')
 
 	}
 
 	c.conn.Close()
 	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
-
 
 }
