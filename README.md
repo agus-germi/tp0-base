@@ -364,7 +364,7 @@ Entonces [una vez que todos los clientes enviaron el mensaje de `END`](https://g
 _En este proyecto, la mayor parte del trabajo es I/O (recepción y envío de datos por sockets, almacenamiento en archivo), por lo que threading ofrece una solución simple y suficiente para cumplir los objetivos del ejercicio._
 
 ---------------------------------------------------------
-![Tests](image.png)
+![Tests](assets\images\tests.png)
 ## Condiciones de Entrega
 Se espera que los alumnos realicen un _fork_ del presente repositorio para el desarrollo de los ejercicios y que aprovechen el esqueleto provisto tanto (o tan poco) como consideren necesario.
 
