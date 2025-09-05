@@ -42,38 +42,39 @@ class Server:
         except Exception as e:
             logging.error(f"action: close_socket | result: fail")
 
-    def recv_message(self, client_sock):
+    def _recv_exactly(self, client_sock, n: int) :
         """
-        Receives a message from the given client socket.
-
-        This method first reads a fixed-size header to determine the length of the incoming message.
-        It then reads the exact number of bytes specified by the header.
-        If the connection is closed or an error occurs before the full message is received, it returns None.
-        On success, it returns the decoded message as a UTF-8 string.
-
-        Args:
-            client_sock (socket.socket): The client socket to read from.
-
-        Returns:
-            str or None: The received message as a string, or None if an error or disconnect occurs.
+        Try to receive exactly n bytes from the socket.
+        Returns None if the connection closes before all bytes are received.
         """
-        try:
-            header_data = client_sock.recv(HEADER_LENGTH)
-            if len(header_data) < HEADER_LENGTH:
-                return None
-
-            msg_length = int.from_bytes(header_data, byteorder='big')
-            data = b''
-            while len(data) < msg_length:
-                chunk = client_sock.recv(msg_length - len(data))
+        data = b''
+        while len(data) < n:
+            try:
+                chunk = client_sock.recv(n - len(data))
                 if not chunk:
                     return None
                 data += chunk
+            except OSError as e:
+                logging.error(f"action: recv_exactly | result: fail | error: {e}", exc_info=True)
+                return None
+        return data
 
-            return data.decode('utf-8').strip()
-        except OSError as e:
-            logging.error(f"action: recv_message | result: fail | error: {e}", exc_info=True)
+    def recv_message(self, client_sock):
+        """
+        Receives a message framed as [HEADER][PAYLOAD].
+        HEADER: fixed 4-byte big-endian integer = payload length
+        PAYLOAD: UTF-8 encoded string of that length
+        """
+        header_data = self._recv_exactly(client_sock, HEADER_LENGTH)
+        if not header_data:
             return None
+
+        msg_length = int.from_bytes(header_data, byteorder="big")
+        payload = self._recv_exactly(client_sock, msg_length)
+        if not payload:
+            return None
+
+        return payload.decode("utf-8").strip()
 
 
     def __handle_client_connection(self, client_sock):
